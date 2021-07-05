@@ -3,12 +3,12 @@ const path = require('path')
 const through2 = require('through2')
 const crypto = require('crypto')
 const SVGO = require('svgo')
-const {Buffer} = require('buffer')
-const {default: traverse} = require('@babel/traverse')
-const {parse} = require('@babel/parser')
-const {default: generate} = require('@babel/generator')
-const {isStringLiteral, isIdentifier} = require('@babel/types')
-const {transform} = require('@babel/core')
+const { Buffer } = require('buffer')
+const { default: traverse } = require('@babel/traverse')
+const { parse } = require('@babel/parser')
+const { default: generate } = require('@babel/generator')
+const { isStringLiteral, isIdentifier } = require('@babel/types')
+const { transform } = require('@babel/core')
 const util = require('util')
 const shelljs = require('shelljs')
 const log = require('fancy-log')
@@ -46,7 +46,7 @@ function handlerSameNameDirFile(dir, callback) {
 }
 
 function genRouter(dir, router, baseDir) {
-    handlerSameNameDirFile(dir, function ({realPath, extname}) {
+    handlerSameNameDirFile(dir, function ({ realPath, extname }) {
         router.push(resolvePath(realPath.replace(baseDir + path.sep, '').replace(extname, '')))
     })
 }
@@ -73,7 +73,7 @@ function getSubPages(dir, condition, callback) {
 }
 
 function genSubPackages(dir, subPackages, condition) {
-    getSubPages(dir, condition, function ({pagesPath, realPath, basename}) {
+    getSubPages(dir, condition, function ({ pagesPath, realPath, basename }) {
         let router = []
         genRouter(pagesPath, router, realPath)
         subPackages.push({
@@ -98,9 +98,9 @@ function camelize2line(str) {
 }
 
 function getSiblingPath(dir, dest, root) {
-    dir = dir.split(path.sep)
+    dir = dir.split(path.sep);
     while (dir.length) {
-        var src = dir.join(path.sep)
+        var src = dir.join(path.sep);
         var fss = fs.readdirSync(src)
         for (let i = 0; i < fss.length; i++) {
             let file = path.resolve(src, fss[i])
@@ -120,46 +120,58 @@ function merge(target, ...sources) {
     if (util.isObject(target) && util.isObject(source)) {
         for (const key in source) {
             if (util.isObject(source[key])) {
-                if (!target[key]) Object.assign(target, {[key]: {}})
+                if (!target[key]) Object.assign(target, { [key]: {} })
                 merge(target[key], source[key])
             } else if (Array.isArray(source[key]) && Array.isArray(target[key])) {
                 target[key] = target[key].concat(source[key])
             } else {
-                Object.assign(target, {[key]: source[key]})
+                Object.assign(target, { [key]: source[key] })
             }
         }
     }
     return merge(target, ...sources)
 }
 
+/**
+ * 主要是用来处理小程序 Page 配置项中的 components 配置的
+ * @param {*} components 
+ * @param {*} modName 
+ * @param {*} modPath 
+ * @param {*} pwd 页面所在目录
+ * @param {*} root 
+ * @returns 
+ */
 function toComponent(components, modName, modPath, pwd, root) {
     var componentPath
     // 相对 subPage 模块
     if (modPath.startsWith('&')) {
         modPath = modPath.replace('&', '')
         // 获取 components 相对路径
-        let componentsPath = getSiblingPath(pwd, 'components', root)
+        let componentsPath = getSiblingPath(pwd, 'components', root);
         if (!componentsPath) {
             components[modName] = null
             delete components[modName]
             log.warn(`cannot find components in ${pwd}`)
             return
         }
-        componentPath = resolvePath(path.relative(pwd, componentsPath))
+        //获取 components 目录再项目中的绝对路径 
+        componentPath = resolvePath(path.relative(pwd, componentsPath));
         // 获取 subPackage 内部 component
     } else if (modPath.startsWith('~')) {
         modPath = modPath.replace('~', '')
         componentPath = '/components'
     }
     if (componentPath) {
-        let componentName = path.basename(modPath)
+        let componentName = path.basename(modPath);
         if (path.dirname(modPath) !== '.') {
             componentPath = `${componentPath}/${path.dirname(modPath)}`
         }
+        //拼接成了 E:xxx/components/coupon-info/coupon-info 这样
         components[modName] = `${componentPath}/${componentName}/${componentName}`
     } else {
         components[modName] = modPath
     }
+    //到了这里，拿到了所有页面代码中 components 配置项中的内容，怎么拿到的？
 }
 
 exports.toComponent = toComponent
@@ -188,7 +200,6 @@ function resolveComponent(content, file, config = {}) {
     // 'card-myposter-user': '&cards/card-myposter-user', 当前 subPage components
     // "list": "@xbreeze/micro-list" node_modules | default
     // }
-
     content = genIdentifierComponents(content, file.dirname, pageConfig)
     let jsonFile = file.path.replace(file.extname, '.json')
     let platformJsonFile = `${file.path.replace(file.extname, '')}.${config.platform}.json`
@@ -196,6 +207,8 @@ function resolveComponent(content, file, config = {}) {
         jsonFile = platformJsonFile
     }
     if (fs.existsSync(jsonFile)) {
+        //自身存在json 文件的目录，建议是和默认配置合并，而不是直接覆盖，当前小程序插件就存在这样的问题
+        console.log('存在json文件的目录：'+file.dirname);
         jsonFile = fs.readFileSync(jsonFile).toString()
         try {
             jsonFile = JSON.parse(jsonFile)
@@ -434,7 +447,11 @@ exports.definePlugin = function (
         callback(null, file)
     })
 }
-
+/**
+ * 平台适配器，用于适配 alipay 和 字节跳动 小程序
+ * @param {*} config 
+ * @returns 
+ */
 exports.adapterJsPlugin = function (config) {
     return through2.obj(function (file, enc, callback) {
         if (file.isBuffer() && file.extname === '.js') {
@@ -442,9 +459,11 @@ exports.adapterJsPlugin = function (config) {
                 let content = file.contents.toString()
                 switch (config.platform) {
                     case 'alipay':
+                        //wx. 替换为 my.
                         content = content.replace(new RegExp(`\\bwx\.\\b`, 'gm'), 'my.')
                         break
                     case 'tt':
+                        //wx. 替换为 tt. 
                         content = content.replace(new RegExp(`\\bwx\.\\b`, 'gm'), 'tt.')
                         break
                 }
@@ -476,6 +495,7 @@ var adapterHtml = function (tree, platform) {
         if (item.type === 'tag') {
             switch (platform) {
                 case 'alipay':
+                    //支付宝统一为 wxs 方式导入 js
                     if (item.name === 'wxs') {
                         item.name = 'import-sjs'
                         if (item.attribs) {
@@ -550,6 +570,7 @@ exports.adapterHtmlPlugin = function (config) {
                 switch (config.platform) {
                     case 'alipay':
                     case 'tt':
+                        //用于编辑 XML/HTML/RSS，产生流，为什么要这么做呢？
                         var tree = htmlparser2.parseDOM(content, {
                             xmlMode: true,
                             decodeEntities: true

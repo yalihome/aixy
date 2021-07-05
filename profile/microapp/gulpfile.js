@@ -27,8 +27,8 @@ const EXCLUDE_FROM_CNPM_PATH = '**/node_modules/!(@xbreeze)'
 const DIST_PROJECT_PATH = path.join(DIST_PATH, config.projectPath) //dist/wechat/sandbox/project
 const DIST_ASSERT_PATH = path.join(DIST_PATH, config.assertPath);
 
-console.log(`config.projectPath:`+config.projectPath);
-console.log(`path.sep: ${path.sep} ,DIST_PATH: ${DIST_PATH} ,DIST_ASSERT_PATH: ${DIST_ASSERT_PATH}, DIST_PROJECT_PATH: ${DIST_PROJECT_PATH}, DIST_ASSERT_PATH: ${DIST_ASSERT_PATH}`)
+// console.log(`config.projectPath:`+config.projectPath);
+// console.log(`path.sep: ${path.sep} ,DIST_PATH: ${DIST_PATH} ,DIST_ASSERT_PATH: ${DIST_ASSERT_PATH}, DIST_PROJECT_PATH: ${DIST_PROJECT_PATH}, DIST_ASSERT_PATH: ${DIST_ASSERT_PATH}`)
 
 function fromSrc(...args) {
     return [...args, `!${DIST_PATH.split(path.sep)[0]}/**`]
@@ -131,7 +131,7 @@ function toDestUrl(url, file) {
 function isIgnoreHash(url) {
     return config.ignoreHash && anymatch(config.ignoreHash, url)
 }
-//这里真的可以有缓存的吗？如果我资源文件变更了，url 还一样呢？
+//@ques 这里真的可以有缓存的吗？如果我资源文件变更了，url 还一样呢？
 function getHashByUrl(url) {
     var cache = HASH_MAP[url]
     if (!cache) {
@@ -405,7 +405,7 @@ function translateStylus() {
         .pipe(toDest(config.projectPath))
 }
 function translateTpl() {
-    // @ext 和 非 @ext 文件中的tmp
+    // @ext 和 非 @ext 文件中的 tpl
     return src(fromSrc(`**/!(${config.prefix})/*.tpl`, `**/${config.prefix}/*.tpl`), {
         ignore: [`${EXCLUDE_FROM_CNPM_PATH}/**/*.tpl`],
         since: lastRun(translateTpl)
@@ -516,7 +516,8 @@ function translateJs() {
             through2.obj(function (file, _, cb) {
                 if (file.isBuffer()) {
                     try {
-                        let content = file.contents.toString()
+                        let content = file.contents.toString();
+                        // commonPageConfig 配置里，useComponents 已经被读取到里面来了，从哪里读取到的，默认每个页面都给加了一个 loading 组件
                         let commonPageConfig = {}
                         if (config.commonPageConfig && config.commonPageConfig.enable) {
                             commonPageConfig = {
@@ -561,6 +562,7 @@ function translateImage() {
             through2.obj(function (file, _, cb) {
                 if (file.isBuffer()) {
                     try {
+                        //所有引用的图片更换为线上路径
                         file.path = path.join(file.cwd, toDestUrl(file.path, file))
                     } catch (err) {
                         logger.error(err)
