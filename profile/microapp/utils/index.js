@@ -327,7 +327,8 @@ exports.normalizeUrl = function (url) {
 class Cache {
     constructor(conf) {
         this.key = `__FILE_CACHE_${conf.namespace}`
-        this.cachePath = path.resolve(process.cwd(), `node_modules/.ovestack/${this.key}`)
+        //@ .ovestack 暂时换成了 .axy，备注下
+        this.cachePath = path.resolve(process.cwd(), `node_modules/.axy/${this.key}`)
         if (fs.existsSync(this.cachePath)) {
             shelljs.rm('-r', this.cachePath)
         }

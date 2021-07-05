@@ -6,7 +6,7 @@ const {getProjectConf, spawn, setNodePath, logger} = require('./utils')
 
 setNodePath()
 
-logger.log(`👾 ovestack v${version}`)
+logger.log(`👾 axy v${version}`)
 
 program.version(version)
 program

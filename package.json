@@ -1,9 +1,9 @@
 {
-    "name": "ovestack",
+    "name": "axy",
     "version": "2.2.2-0",
     "description": "scaffolding base on webpack",
     "bin": {
-        "ovestack": "./bin/cli.js"
+        "axy": "./bin/cli.js"
     },
     "dependencies": {
         "@babel/core": "^7.12.3",
