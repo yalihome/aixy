@@ -45,7 +45,7 @@ switch (config.profile) {
                     logger.log(`⌛ [preview] task start`)
                     await ci.preview({
                         project,
-                        desc: 'generate by axy', // 此备注将显示在“小程序助手”开发版列表中
+                        desc: 'generate by aixy', // 此备注将显示在“小程序助手”开发版列表中
                         setting: {
                             es7: true
                         },
@@ -63,7 +63,7 @@ switch (config.profile) {
                     await ci.upload({
                         project,
                         version: config.version,
-                        desc: versionDesc || 'generate by axy',
+                        desc: versionDesc || 'generate by aixy',
                         setting: {
                             es7: true
                         },

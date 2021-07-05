@@ -49,7 +49,7 @@ module.exports = {
     plugins: [
         new webpack.DefinePlugin(config.consts),
         new WebpackBar({
-            name: 'axy'
+            name: 'aixy'
         }),
         new WebpackStats({
             output: utils.assetsPath('stats.json')

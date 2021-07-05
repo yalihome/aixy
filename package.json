@@ -1,9 +1,9 @@
 {
-    "name": "axy",
+    "name": "aixy",
     "version": "2.2.2-0",
     "description": "scaffolding base on webpack",
     "bin": {
-        "axy": "./bin/cli.js"
+        "aixy": "./bin/cli.js"
     },
     "dependencies": {
         "@babel/core": "^7.12.3",
