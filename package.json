@@ -1,6 +1,6 @@
 {
     "name": "axy",
-    "version": "2.2.2",
+    "version": "2.2.2-0",
     "description": "scaffolding base on webpack",
     "bin": {
         "axy": "./bin/cli.js"
