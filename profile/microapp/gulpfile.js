@@ -574,19 +574,30 @@ function translateImage() {
         )
         .pipe(toDest(config.assertPath))
 }
-
+/**
+ * 处理 app.json
+ * 文件都产出到了 project 目录，再开始处理 app.json
+ * @returns 
+ */
 function generateApp() {
-    var router = []
-    var subPackages = []
-    var distProjectPath = path.join(config.root, DIST_PROJECT_PATH)
-    var distPagesPath = path.join(distProjectPath, path.relative(config.root, config.pagesPath))
+    var router = [];
+    var subPackages = [];
+    //根据编译后的产出目录中的 pages 目录下的文件，自动生成 app.json 中的 pages 配置
+    var distProjectPath = path.join(config.root, DIST_PROJECT_PATH);  //dist/wechat/sandbox/project
+    var distPagesPath = path.join(distProjectPath, path.relative(config.root, config.pagesPath));  // dist/wechat/sandbox/project/pages
+    //生成主包的目录
+    // pages 目录存在 ，小程序才这样处理，插件会跳过这这里，插件项目源码的 app.json 不需要处理(其实也应该做处理)
     if (fs.existsSync(distPagesPath)) {
-        genRouter(distPagesPath, router, distProjectPath)
+        genRouter(distPagesPath, router, distProjectPath);
     }
+    //处理分包以及分包下的路径，问题在于，现在分包也是可以引入 plugin 的
+    //@todo 应该在分包下面放置一个 config.json，用于合并分包其它配置
     genSubPackages(distProjectPath, subPackages, function (filepath) {
-        let pathname = path.basename(filepath)
+        let pathname = path.basename(filepath);
+        console.log(`pathname: ${pathname}`);
+        //config.subPackages 用于存储当前已经确定是分包的目录，哪些目录是分包目录，可通过 override.config.js 的 subpackages 配置项配置
         return config.subPackages.indexOf(pathname) !== -1
-    })
+    });
     return src('app.json', {
         allowEmpty: true
     })
@@ -611,6 +622,7 @@ function generateApp() {
                                 toComponent(content.usingComponents, key, config.globalComponents.components[key], config.root)
                             })
                         }
+                        //obj 转为 json 字符串的时候，冒号与属性值之间的空格数目为 4
                         content = JSON.stringify(content, null, 4)
                         let newFile = file.clone()
                         newFile.contents = Buffer.from(`export default ${content}`)
@@ -628,7 +640,7 @@ function generateApp() {
         )
         .pipe(toDest(config.projectPath))
 }
-
+//清除中间过程产生的 css 文件
 function optimize() {
     return src(normalizeUrl(path.join(DIST_PATH, config.projectPath, `**/*${getExt('css')}`)))
         .pipe(plumber())

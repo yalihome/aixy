@@ -19,21 +19,32 @@ const template = require('art-template')
 var rule = template.defaults.rules[1]
 rule.test = new RegExp(rule.test.source.replace('{{', '{#').replace('}}', '#}'))
 
+/**
+ * 遍历获取同一个目录下的所有目录的文件真实路径
+ * @param {*} dir 
+ * @param {*} callback 
+ */
 function handlerSameNameDirFile(dir, callback) {
+    // 遍历同一个文件夹下的所有目录以及文件
     var fss = fs.readdirSync(dir)
     fss.forEach(function (f) {
         var basename = path.basename(f),
-            realPath = path.resolve(dir, f)
+            realPath = path.resolve(dir, f);
+            // console.log(`dir: ${dir}, basename: ` + basename + ' ,realPath: '+realPath);
         if (basename[0] === '_') return
-        var stat = fs.statSync(realPath)
+        var stat = fs.statSync(realPath);
+        //是目录，继续进入目录进行处理
         if (stat.isDirectory()) {
             handlerSameNameDirFile(realPath, callback)
         } else {
+            //是文件，且仅处理 js 文件，模板文件和 js 不处理
             let extname = path.extname(realPath)
             if (extname !== '.js') return
             var basename = path.basename(realPath).replace(extname, ''),
                 dirname = path.dirname(realPath).split(path.sep).pop()
+                // js 文件的名称和目录名称一致，则调用 回调
             if (basename === dirname) {
+                //传递出去的是真实目录、当前文件所在目录名、文件名、文件后缀（后缀限定死了是 js 文件）
                 callback({
                     dirname: dirname,
                     realPath: realPath,
@@ -44,22 +55,35 @@ function handlerSameNameDirFile(dir, callback) {
         }
     })
 }
-
+/**
+ * 获取 dir 目录下所有的符合小程序规范的页面文件路径数组： ['pages/index/index'，'pages/test/test'] 这样
+ * 关键点在于：获取 pages/index/index，获取真实路径，通过替换真实路径中的根目录字符串获取到
+ * 仅在普通小程序主包和分包(extPackage)两个地方有调用 此函数
+ * 待优化部分： 插件的 plugin.json 文件也需要调用此函数产生路径数组，而不是每次都手动配置
+ * @param {*} dir 当前遍历的目录
+ * @param {*} router 路径数组
+ * @param {*} baseDir 最终需要在文件真实目录中需要去掉的路径部分
+ */
 function genRouter(dir, router, baseDir) {
+    // baseDir 取值：
+    // E:\smart-breeze\pi-ma-guide-client\dist\nuode\wechat\sandbox\project
+    // E:\smart-breeze\pi-ma-guide-client\dist\nuode\wechat\sandbox\project\extPackage
     handlerSameNameDirFile(dir, function ({ realPath, extname }) {
         router.push(resolvePath(realPath.replace(baseDir + path.sep, '').replace(extname, '')))
-    })
+    });
 }
 
 exports.genRouter = genRouter
 
+//@ques 除开 extPackage ，分包叫做其它名字真的不行？
 function getSubPages(dir, condition, callback) {
     var fss = fs.readdirSync(dir)
     fss.forEach(function (f) {
         var basename = path.basename(f),
             realPath = path.resolve(dir, f)
-        var stat = fs.statSync(realPath)
+        var stat = fs.statSync(realPath);
         if (condition(realPath) && stat.isDirectory()) {
+            // console.log(`realPath: ${realPath}`);
             let pagesPath = path.resolve(realPath, './pages')
             if (fs.existsSync(pagesPath)) {
                 callback({
@@ -72,10 +96,21 @@ function getSubPages(dir, condition, callback) {
     })
 }
 
+//dir 依然是从 dist/wechat/sandbox/project 开始
+/**
+ * 
+ * @param {*} dir 
+ * @param {*} subPackages 
+ * @param {*} condition 校验路径的函数，返回 true/false
+ */
 function genSubPackages(dir, subPackages, condition) {
+    //project 目录下的 extPackage 目录下的 pages 目录
     getSubPages(dir, condition, function ({ pagesPath, realPath, basename }) {
-        let router = []
-        genRouter(pagesPath, router, realPath)
+        let router = [];
+        //生成某个目录下的页面记录
+        //pagesPath  dist/wechat/sandbox/project/extPackage/pages
+        //realPath  E:\smart-breeze\pi-ma-guide-client\dist\nuode\wechat\sandbox\project\extPackage
+        genRouter(pagesPath, router, realPath);
         subPackages.push({
             root: basename,
             pages: router
@@ -189,6 +224,10 @@ function resolveComponent(content, file, config = {}) {
             })
         }
     }
+    // if((/@component\(['"](.*)['"]\)[;]?/g).test(content)){
+    //     console.log(content);
+    //     console.log('dirname: ' + file.dirname);
+    // }
     // 替换@component('组件')
     content = content.replace(/@component\(['"](.*)['"]\)[;]?/g, function (input, mod, modPath) {
         toComponent(pageConfig.usingComponents, mod, mod, file.dirname)
@@ -208,7 +247,7 @@ function resolveComponent(content, file, config = {}) {
     }
     if (fs.existsSync(jsonFile)) {
         //自身存在json 文件的目录，建议是和默认配置合并，而不是直接覆盖，当前小程序插件就存在这样的问题
-        console.log('存在json文件的目录：'+file.dirname);
+        // console.log('存在json文件的目录：'+file.dirname);
         jsonFile = fs.readFileSync(jsonFile).toString()
         try {
             jsonFile = JSON.parse(jsonFile)
