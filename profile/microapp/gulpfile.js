@@ -21,7 +21,7 @@ const config = Config.config
 const {resolve: resolveUrl, parse: parseUrl} = require('url')
 //这里的root 居然是 E:\smartbreeze\work\dist\wechat\\sandbox
 const DIST_PATH = path.relative(config.root, config.publicPath) //dist/wechat/sandbox
-console.log(`publicPath: ${config.publicPath}`)
+// console.log(`publicPath: ${config.publicPath}`)
 const INCLUDE_FILES = fromSrc('**/*', '!override.config.js', '!.DS_Store', '!**/init', '!**/*.less', '!**/*.stylus', '!**/*.tpl', '!**/pages/**/*.js', '!**/pages/**/*.json', '!**/*.{jpg,jpeg,png,gif,svg}', '!**/*.{zip,tgz}', '!app.json', '!package-lock.json')
 const EXCLUDE_FROM_CNPM_PATH = '**/node_modules/!(@xbreeze)'
 const DIST_PROJECT_PATH = path.join(DIST_PATH, config.projectPath) //dist/wechat/sandbox/project
@@ -459,11 +459,13 @@ function translateTpl() {
                                     }
                                 }
                             }
-                            file.contents = Buffer.from(
-                                htmlparser2.DomUtils.getOuterHTML(tree, {
-                                    xmlMode: true
-                                })
-                            )
+                            let html = htmlparser2.DomUtils.getOuterHTML(tree, {
+                                xmlMode: true
+                            });
+                            //如果识别到文件中有 @apos; 直接替换
+                            let aposReg = new RegExp("&apos;", "g");
+                            html = html.replace(aposReg, "'");
+                            file.contents = Buffer.from(html);
                         }
                     } catch (err) {
                         logger.error(err)
@@ -594,7 +596,7 @@ function generateApp() {
     //@todo 应该在分包下面放置一个 config.json，用于合并分包其它配置
     genSubPackages(distProjectPath, subPackages, function (filepath) {
         let pathname = path.basename(filepath);
-        console.log(`pathname: ${pathname}`);
+        // console.log(`pathname: ${pathname}`);
         //config.subPackages 用于存储当前已经确定是分包的目录，哪些目录是分包目录，可通过 override.config.js 的 subpackages 配置项配置
         return config.subPackages.indexOf(pathname) !== -1
     });
