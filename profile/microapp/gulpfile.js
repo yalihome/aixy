@@ -528,12 +528,14 @@ function translateJs() {
                                 ...config.commonPageConfig.injection
                             }
                         }
+                        
+                        //非插件的时候，pages 目录下的 页面的 json 文件就能和 usingComponents 合并到一起
                         let re = resolveComponent(content, file, {
                             commonPageConfig,
                             root: config.root,
                             platform: config.platform,
-                            enableEnvsResolve: config.enableEnvsResolve
-                        })
+                            enableEnvsResolve: config.enableEnvsResolve  //允许多平台编译
+                        });
                         file.contents = Buffer.from(re.content)
                         let newFile = file.clone()
                         newFile.contents = Buffer.from(re.componentJson)
@@ -615,7 +617,8 @@ function generateApp() {
                         content.subPackages = content.subPackages || []
                         content.subPackages = content.subPackages.concat(subPackages)
                         content.pages = content.pages || []
-                        content.pages = content.pages.concat(router)
+                        content.pages = content.pages.concat(router);
+                        //指定首页
                         if (config.indexPage && router.indexOf(config.indexPage) !== -1) {
                             content.pages.splice(content.pages.indexOf(config.indexPage), 1)
                             content.pages.unshift(config.indexPage)

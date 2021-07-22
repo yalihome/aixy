@@ -168,7 +168,9 @@ function merge(target, ...sources) {
 }
 
 /**
- * 主要是用来处理小程序 Page 配置项中的 components 配置的
+ * 主要是用来处理小程序 Page 配置项中的 components 配置的，将 components 的值最终转化为页面 json 文件中的 usingComponents 的配置项，不对 npm 包做处理
+ * Page 中的 components 配置项的值中使用放在 components 中的自定义组件的时候，可以用 &(相对路径) 或者 ~(绝对路径) 来替代真实路径，构架工具会自动替换为真实路径
+ * 使用 npm 包组件的时候，直接配置包名即可，工具不会对其做特殊处理的
  * @param {*} components 
  * @param {*} modName 
  * @param {*} modPath 
@@ -189,23 +191,35 @@ function toComponent(components, modName, modPath, pwd, root) {
             log.warn(`cannot find components in ${pwd}`)
             return
         }
-        //获取 components 目录再项目中的绝对路径 
+        // if(pwd.indexOf('pages\\cates')>-1 || (pwd.indexOf('pages\\equity')>-1 && pwd.indexOf('info')==-1)){
+        //     console.log('toComponent 拿到所有 components 配置：');
+        //     console.log('resolve: '+path.relative(pwd, componentsPath)+' ,pwd: '+ pwd+' ,componentsPath: '+componentsPath+ ' ,root: '+root);
+        // }
+        //获取 components 目录在项目中的相对路径 
         componentPath = resolvePath(path.relative(pwd, componentsPath));
         // 获取 subPackage 内部 component
     } else if (modPath.startsWith('~')) {
+        //绝对路径
         modPath = modPath.replace('~', '')
-        componentPath = '/components'
+        componentPath = '/components';
     }
+    
     if (componentPath) {
+        //取 basename 的原因：存在这样的组件：~cards/card-lottery，确实是要取 / 分割的最后一个路径名
         let componentName = path.basename(modPath);
+        //首页的 path.dirname(modPath) 反正都是 . ，其它有 cards/card-order 的待验证
         if (path.dirname(modPath) !== '.') {
-            componentPath = `${componentPath}/${path.dirname(modPath)}`
+            componentPath = `${componentPath}/${path.dirname(modPath)}`;
         }
         //拼接成了 E:xxx/components/coupon-info/coupon-info 这样
-        components[modName] = `${componentPath}/${componentName}/${componentName}`
+        components[modName] = `${componentPath}/${componentName}/${componentName}`;
+        
     } else {
-        components[modName] = modPath
+        //走 @smartbreeze 的 npm 包的，进来了这里
+        components[modName] = modPath;
     }
+
+    
     //到了这里，拿到了所有页面代码中 components 配置项中的内容，怎么拿到的？
 }
 
@@ -215,6 +229,7 @@ function resolveComponent(content, file, config = {}) {
     var pageConfig = {
         usingComponents: {}
     }
+    // config.commonPageConfig  小程序插件有默认的，小程序本身没有默认的
     if (config.commonPageConfig) {
         merge(pageConfig, config.commonPageConfig)
         if (config.commonPageConfig.usingComponents) {
@@ -224,6 +239,7 @@ function resolveComponent(content, file, config = {}) {
             })
         }
     }
+    
     // if((/@component\(['"](.*)['"]\)[;]?/g).test(content)){
     //     console.log(content);
     //     console.log('dirname: ' + file.dirname);
@@ -233,22 +249,31 @@ function resolveComponent(content, file, config = {}) {
         toComponent(pageConfig.usingComponents, mod, mod, file.dirname)
         return ''
     })
+
     // 替换 components 声明组件（eslint）
     // components: {
     // shortcut: '~shortcut', 顶层 components
     // 'card-myposter-user': '&cards/card-myposter-user', 当前 subPage components
     // "list": "@xbreeze/micro-list" node_modules | default
     // }
-    content = genIdentifierComponents(content, file.dirname, pageConfig)
+
+    //小程序构建之后，pageConfig 里面只有 usingComponents 的配置
+    //插件构建之后，pageConfig 里面有 navigationStyle 配置。。。，貌似还是在 genIdentifierComponents 里面被加上的
+
+    //页面中的 components 配置在这里，通过 babel 转换为 ast，然后被提取出来成为了 useComponents
+    content = genIdentifierComponents(content, file.dirname, pageConfig);
+    //获取 json 文件的路径名
     let jsonFile = file.path.replace(file.extname, '.json')
-    let platformJsonFile = `${file.path.replace(file.extname, '')}.${config.platform}.json`
+    let platformJsonFile = `${file.path.replace(file.extname, '')}.${config.platform}.json`;
+    
     if (config.enableEnvsResolve && fs.existsSync(platformJsonFile)) {
         jsonFile = platformJsonFile
     }
+    //页面 js 中的 components 配置 json 要和页面 json 中的配置合并 
     if (fs.existsSync(jsonFile)) {
         //自身存在json 文件的目录，建议是和默认配置合并，而不是直接覆盖，当前小程序插件就存在这样的问题
         // console.log('存在json文件的目录：'+file.dirname);
-        jsonFile = fs.readFileSync(jsonFile).toString()
+        jsonFile = fs.readFileSync(jsonFile).toString();
         try {
             jsonFile = JSON.parse(jsonFile)
         } catch (err) {
@@ -257,9 +282,11 @@ function resolveComponent(content, file, config = {}) {
     } else {
         jsonFile = {}
     }
+
+    //json 文件的配置应该能覆盖全局的配置，而不是全局的怎么都覆盖 json 文件的  { "navigationStyle": "default" },
     return {
         content,
-        componentJson: JSON.stringify(merge(jsonFile, pageConfig), null, 4)
+        componentJson: JSON.stringify(merge({ "navigationStyle": "default" }, jsonFile, pageConfig), null, 4)
     }
 }
 
@@ -274,12 +301,14 @@ function genIdentifierComponents(
 ) {
     const ast = parse(code, {
         sourceType: 'module'
-    })
+    });
+    //@babel/traverse 用于遍历 @babel/parse 生成的 ast
     traverse(ast, {
         enter(path) {
+            //components 的类型在 babel 中被定义为 identifier
             if ((isIdentifier(path.node) && path.node.name === 'components') || (isStringLiteral(path.node) && path.node.value === 'components')) {
                 let parentNode = path.parent
-                let value = parentNode.value
+                let value = parentNode.value;
                 if (parentNode.type === 'VariableDeclarator') {
                     parentNode.init.properties.forEach(prop => {
                         // StringLiteral | Literal
