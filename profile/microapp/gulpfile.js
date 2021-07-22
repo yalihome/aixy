@@ -1,5 +1,5 @@
 const path = require('path')
-const {series, parallel, src, dest, watch, lastRun, task} = require('gulp')
+const { series, parallel, src, dest, watch, lastRun, task } = require('gulp')
 const fs = require('fs')
 const rename = require('gulp-rename')
 const less = require('gulp-less')
@@ -12,13 +12,14 @@ const alias = require('gulp-style-aliases')
 const Buffer = require('buffer').Buffer
 const css = require('css')
 const plumber = require('gulp-plumber')
-const {genRouter, genSubPackages, resolveComponent, createStreamFromFile, isHTTP, isBase64, toHash, toBase64, inlineSvg, normalizeUrl, toComponent, Cache, logger, definePlugin, adapterJsPlugin, adapterHtmlPlugin, babelTransform, resolvePath} = require('./utils')
-const {isUndefined, isFunction} = require('util')
+const { genRouter, genSubPackages, resolveComponent, createStreamFromFile, isHTTP, isBase64, toHash, toBase64, inlineSvg, normalizeUrl, toComponent, Cache, logger, definePlugin, adapterJsPlugin, adapterHtmlPlugin, babelTransform, resolvePath } = require('./utils')
+const { isUndefined, isFunction } = require('util')
 const anymatch = require('anymatch')
-const {rm} = require('shelljs')
+const { rm } = require('shelljs')
 const Config = require(require.resolve('../../config')) //根目录的config.js
 const config = Config.config
-const {resolve: resolveUrl, parse: parseUrl} = require('url')
+const { resolve: resolveUrl, parse: parseUrl } = require('url')
+const { fieldEnds } = require('tar')
 //这里的root 居然是 E:\smartbreeze\work\dist\wechat\\sandbox
 const DIST_PATH = path.relative(config.root, config.publicPath) //dist/wechat/sandbox
 // console.log(`publicPath: ${config.publicPath}`)
@@ -104,7 +105,7 @@ async function toUrl(defUrl, file, imageDomain) {
             }
         }
     }
-//变为标准的 / 分割的 路径字符串
+    //变为标准的 / 分割的 路径字符串
     url = normalizeUrl(url.replace(parsedUrl.search, ''))
     var cwd = normalizeUrl(process.cwd())
     if (config.useHash && !isIgnoreHash(url)) {
@@ -428,11 +429,13 @@ function translateTpl() {
                     try {
                         // @todo 这里做了什么，需要研究下
                         if (config.enableTheme || (config.globalComponents && config.globalComponents.enable)) {
+                            //乱码的两种猜测：1、在转为 tree 结构的时候已经出错   2、tree 结构转为 html 的时候出错
                             let content = file.contents.toString()
                             let tree = htmlparser2.parseDOM(content, {
                                 xmlMode: true,
                                 decodeEntities: true
                             })
+
                             if (config.enableTheme) {
                                 var parentNodes = tree.filter(element => {
                                     return !element.parent
@@ -460,11 +463,14 @@ function translateTpl() {
                                 }
                             }
                             let html = htmlparser2.DomUtils.getOuterHTML(tree, {
-                                xmlMode: true
+                                xmlMode: true,
+                                decodeEntities: false
                             });
-                            //如果识别到文件中有 @apos; 直接替换
-                            let aposReg = new RegExp("&apos;", "g");
-                            html = html.replace(aposReg, "'");
+                            if (file.dirname.indexOf('components\\btn') > -1) {
+                                console.log('components btn');
+                                console.log(html);
+                            }
+
                             file.contents = Buffer.from(html);
                         }
                     } catch (err) {
