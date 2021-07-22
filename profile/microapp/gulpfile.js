@@ -466,10 +466,6 @@ function translateTpl() {
                                 xmlMode: true,
                                 decodeEntities: false
                             });
-                            if (file.dirname.indexOf('components\\btn') > -1) {
-                                console.log('components btn');
-                                console.log(html);
-                            }
 
                             file.contents = Buffer.from(html);
                         }
