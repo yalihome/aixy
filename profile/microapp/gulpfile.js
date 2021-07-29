@@ -3,7 +3,9 @@ const { series, parallel, src, dest, watch, lastRun, task } = require('gulp')
 const fs = require('fs')
 const rename = require('gulp-rename')
 const less = require('gulp-less')
-const cleanCSS = require('gulp-clean-css')
+const cleanCSS = require('gulp-clean-css');
+const minifyJs = require('gulp-js-minify');
+// const uglifyEs = require('gulp-uglify-es').default;
 const stylus = require('gulp-stylus')
 const through2 = require('through2')
 //html 解析器
@@ -143,6 +145,7 @@ function getHashByUrl(url) {
 }
 
 function translateUrl() {
+    console.log('translateUrl');
     return through2.obj(function (file, _, cb) {
         //file 为一个对象，其类型为 File，nodejs 有没有这个原生类型？
         if (file.isBuffer()) {
@@ -278,7 +281,7 @@ function translateLess() {
 
 function translateLessWithTheme(theme, themeData) {
     function addRuleWithPrefix(rules) {
-        var prefix = `.${config.themePrefix}${theme}`
+        var prefix = `.${config.themePrefix}${theme}`;
         // 获取__ROOT__ 标识
         // 遍历所有 selector
         // 匹配
@@ -336,6 +339,8 @@ function translateLessWithTheme(theme, themeData) {
         return matched && fs.existsSync(extFile)
     }
     return function translateTheme() {
+        let target = config.projectPath+'/test';
+        console.log(`target: ${target}`);
         return src(fromSrc('**/*.less'), {
             ignore: [`${EXCLUDE_FROM_CNPM_PATH}/**/*.less`]
         })
@@ -365,7 +370,9 @@ function translateLessWithTheme(theme, themeData) {
                             // 遍历所有节点
                             // 节点名称前加 themeId
                             addRuleWithPrefix(cssObj.stylesheet.rules)
-                            content = css.stringify(cssObj)
+                            // console.log('file: '+file.path);
+                            content = css.stringify(cssObj);
+                            // console.log(content);
                             file.contents = Buffer.from(content)
                         } catch (err) {
                             logger.error(err)
@@ -382,6 +389,7 @@ function translateLessWithTheme(theme, themeData) {
                     path.extname = getExt('css')
                 })
             )
+            .pipe(toDest(target))
             .pipe(
                 dest(path.join(DIST_PATH, config.projectPath), {
                     overwrite: true,
@@ -647,11 +655,24 @@ function generateApp() {
         )
         .pipe(toDest(config.projectPath))
 }
-//清除中间过程产生的 css 文件
+
+//压缩css
 function optimize() {
     return src(normalizeUrl(path.join(DIST_PATH, config.projectPath, `**/*${getExt('css')}`)))
         .pipe(plumber())
         .pipe(cleanCSS())
+        .pipe(toDest(config.projectPath))
+}
+//压缩js
+function optimizeJs() {
+    console.log('optimizeJs');
+    return src(normalizeUrl(path.join(DIST_PATH, config.projectPath, `**/*.js`)))
+        .pipe(plumber())
+        .pipe(minifyJs({
+            mangle: false,
+            compress: false
+        }))
+        .pipe(toDest(config.projectPath+'/test'))
         .pipe(toDest(config.projectPath))
 }
 
@@ -731,7 +752,7 @@ var defaultTask = function () {
         )
     }
     if (config.cmdArgv.optimize) {
-        defaultTasks.push(optimize)
+        defaultTasks.push(optimize,optimizeJs);  
     }
     if (config.cmdArgv.watch) {
         var watcher = watch(fromSrc('**/*'), {
