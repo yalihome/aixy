@@ -752,7 +752,7 @@ var defaultTask = function () {
         )
     }
     if (config.cmdArgv.optimize) {
-        defaultTasks.push(optimize,optimizeJs);  
+        defaultTasks.push(optimize);  //optimizeJs
     }
     if (config.cmdArgv.watch) {
         var watcher = watch(fromSrc('**/*'), {
