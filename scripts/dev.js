@@ -1,7 +1,7 @@
 const Config = require('../config')
 const config = Config.config
 const webpack = require('webpack')
-const connect = require('connect')
+const connect = require('connect') //中间件框架
 const serveStatic = require('serve-static')
 const webpackMiddleware = require('webpack-dev-middleware')
 const hotMiddleware = require('webpack-hot-middleware')
@@ -11,10 +11,12 @@ const utils = requireMod('utils')
 const ENV = 'development'
 const {logger} = require('../utils')
 
+//初始化，也就是创建 server/private/log 文件和同步 @server 到 server 目录
 Config.trigger('onInit', ENV)
 
 // @TODO: DLL
 if (config.enableDll) {
+    //启用 dll 的话，就引入 dll 配置，也就是缓存
     const dllConf = require(resolvePath('profile', config.profile, 'webpack.dll.conf'))
     let compiler = webpack(dllConf)
     compiler.run(err => {
@@ -25,7 +27,7 @@ if (config.enableDll) {
 } else {
     devServe()
 }
-
+// webpack 的 devServer 是怎么和 项目的 node server.js 结合在一起的
 function devServe() {
     var devServerConf = config.devServer || {}
     utils.getPort().then(port => {
@@ -38,6 +40,7 @@ function devServe() {
                 webpackConf.entry[name] = [`webpack-hot-middleware/client?noInfo=true&path=${config.hmrPath.replace('{port}', port)}&reload=true`].concat(webpackConf.entry[name])
             })
         }
+        //合并配置到 this.config
         Config.trigger('onConfig', webpackConf, ENV)
         var compiler = webpack(webpackConf)
         let wdmLogger = compiler.getInfrastructureLogger('webpack-dev-middleware')
@@ -71,6 +74,7 @@ function devServe() {
         wdmInstance.waitUntilValid(stats => {
             if (!stats.hasErrors()) {
                 Config.trigger('onDone', stats, ENV)
+                //初始化完毕，启动监听
                 serve()
             } else {
                 Config.trigger('onError', stats, ENV)

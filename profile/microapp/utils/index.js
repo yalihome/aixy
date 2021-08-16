@@ -3,12 +3,12 @@ const path = require('path')
 const through2 = require('through2')
 const crypto = require('crypto')
 const SVGO = require('svgo')
-const {Buffer} = require('buffer')
-const {default: traverse} = require('@babel/traverse')
-const {parse} = require('@babel/parser')
-const {default: generate} = require('@babel/generator')
-const {isStringLiteral, isIdentifier} = require('@babel/types')
-const {transform} = require('@babel/core')
+const { Buffer } = require('buffer')
+const { default: traverse } = require('@babel/traverse')
+const { parse } = require('@babel/parser')
+const { default: generate } = require('@babel/generator')
+const { isStringLiteral, isIdentifier } = require('@babel/types')
+const { transform } = require('@babel/core')
 const util = require('util')
 const shelljs = require('shelljs')
 const log = require('fancy-log')
@@ -19,21 +19,32 @@ const template = require('art-template')
 var rule = template.defaults.rules[1]
 rule.test = new RegExp(rule.test.source.replace('{{', '{#').replace('}}', '#}'))
 
+/**
+ * 遍历获取同一个目录下的所有目录的文件真实路径
+ * @param {*} dir 
+ * @param {*} callback 
+ */
 function handlerSameNameDirFile(dir, callback) {
+    // 遍历同一个文件夹下的所有目录以及文件
     var fss = fs.readdirSync(dir)
     fss.forEach(function (f) {
         var basename = path.basename(f),
-            realPath = path.resolve(dir, f)
+            realPath = path.resolve(dir, f);
+            // console.log(`dir: ${dir}, basename: ` + basename + ' ,realPath: '+realPath);
         if (basename[0] === '_') return
-        var stat = fs.statSync(realPath)
+        var stat = fs.statSync(realPath);
+        //是目录，继续进入目录进行处理
         if (stat.isDirectory()) {
             handlerSameNameDirFile(realPath, callback)
         } else {
+            //是文件，且仅处理 js 文件，模板文件和 js 不处理
             let extname = path.extname(realPath)
             if (extname !== '.js') return
             var basename = path.basename(realPath).replace(extname, ''),
                 dirname = path.dirname(realPath).split(path.sep).pop()
+                // js 文件的名称和目录名称一致，则调用 回调
             if (basename === dirname) {
+                //传递出去的是真实目录、当前文件所在目录名、文件名、文件后缀（后缀限定死了是 js 文件）
                 callback({
                     dirname: dirname,
                     realPath: realPath,
@@ -44,22 +55,35 @@ function handlerSameNameDirFile(dir, callback) {
         }
     })
 }
-
+/**
+ * 获取 dir 目录下所有的符合小程序规范的页面文件路径数组： ['pages/index/index'，'pages/test/test'] 这样
+ * 关键点在于：获取 pages/index/index，获取真实路径，通过替换真实路径中的根目录字符串获取到
+ * 仅在普通小程序主包和分包(extPackage)两个地方有调用 此函数
+ * 待优化部分： 插件的 plugin.json 文件也需要调用此函数产生路径数组，而不是每次都手动配置
+ * @param {*} dir 当前遍历的目录
+ * @param {*} router 路径数组
+ * @param {*} baseDir 最终需要在文件真实目录中需要去掉的路径部分
+ */
 function genRouter(dir, router, baseDir) {
-    handlerSameNameDirFile(dir, function ({realPath, extname}) {
+    // baseDir 取值：
+    // E:\smart-breeze\pi-ma-guide-client\dist\nuode\wechat\sandbox\project
+    // E:\smart-breeze\pi-ma-guide-client\dist\nuode\wechat\sandbox\project\extPackage
+    handlerSameNameDirFile(dir, function ({ realPath, extname }) {
         router.push(resolvePath(realPath.replace(baseDir + path.sep, '').replace(extname, '')))
-    })
+    });
 }
 
 exports.genRouter = genRouter
 
+//@ques 除开 extPackage ，分包叫做其它名字真的不行？
 function getSubPages(dir, condition, callback) {
     var fss = fs.readdirSync(dir)
     fss.forEach(function (f) {
         var basename = path.basename(f),
             realPath = path.resolve(dir, f)
-        var stat = fs.statSync(realPath)
+        var stat = fs.statSync(realPath);
         if (condition(realPath) && stat.isDirectory()) {
+            // console.log(`realPath: ${realPath}`);
             let pagesPath = path.resolve(realPath, './pages')
             if (fs.existsSync(pagesPath)) {
                 callback({
@@ -72,10 +96,21 @@ function getSubPages(dir, condition, callback) {
     })
 }
 
+//dir 依然是从 dist/wechat/sandbox/project 开始
+/**
+ * 
+ * @param {*} dir 
+ * @param {*} subPackages 
+ * @param {*} condition 校验路径的函数，返回 true/false
+ */
 function genSubPackages(dir, subPackages, condition) {
-    getSubPages(dir, condition, function ({pagesPath, realPath, basename}) {
-        let router = []
-        genRouter(pagesPath, router, realPath)
+    //project 目录下的 extPackage 目录下的 pages 目录
+    getSubPages(dir, condition, function ({ pagesPath, realPath, basename }) {
+        let router = [];
+        //生成某个目录下的页面记录
+        //pagesPath  dist/wechat/sandbox/project/extPackage/pages
+        //realPath  E:\smart-breeze\pi-ma-guide-client\dist\nuode\wechat\sandbox\project\extPackage
+        genRouter(pagesPath, router, realPath);
         subPackages.push({
             root: basename,
             pages: router
@@ -98,9 +133,9 @@ function camelize2line(str) {
 }
 
 function getSiblingPath(dir, dest, root) {
-    dir = dir.split(path.sep)
+    dir = dir.split(path.sep);
     while (dir.length) {
-        var src = dir.join(path.sep)
+        var src = dir.join(path.sep);
         var fss = fs.readdirSync(src)
         for (let i = 0; i < fss.length; i++) {
             let file = path.resolve(src, fss[i])
@@ -120,46 +155,72 @@ function merge(target, ...sources) {
     if (util.isObject(target) && util.isObject(source)) {
         for (const key in source) {
             if (util.isObject(source[key])) {
-                if (!target[key]) Object.assign(target, {[key]: {}})
+                if (!target[key]) Object.assign(target, { [key]: {} })
                 merge(target[key], source[key])
             } else if (Array.isArray(source[key]) && Array.isArray(target[key])) {
                 target[key] = target[key].concat(source[key])
             } else {
-                Object.assign(target, {[key]: source[key]})
+                Object.assign(target, { [key]: source[key] })
             }
         }
     }
     return merge(target, ...sources)
 }
 
+/**
+ * 主要是用来处理小程序 Page 配置项中的 components 配置的，将 components 的值最终转化为页面 json 文件中的 usingComponents 的配置项，不对 npm 包做处理
+ * Page 中的 components 配置项的值中使用放在 components 中的自定义组件的时候，可以用 &(相对路径) 或者 ~(绝对路径) 来替代真实路径，构架工具会自动替换为真实路径
+ * 使用 npm 包组件的时候，直接配置包名即可，工具不会对其做特殊处理的
+ * @param {*} components 
+ * @param {*} modName 
+ * @param {*} modPath 
+ * @param {*} pwd 页面所在目录
+ * @param {*} root 
+ * @returns 
+ */
 function toComponent(components, modName, modPath, pwd, root) {
     var componentPath
     // 相对 subPage 模块
     if (modPath.startsWith('&')) {
         modPath = modPath.replace('&', '')
         // 获取 components 相对路径
-        let componentsPath = getSiblingPath(pwd, 'components', root)
+        let componentsPath = getSiblingPath(pwd, 'components', root);
         if (!componentsPath) {
             components[modName] = null
             delete components[modName]
             log.warn(`cannot find components in ${pwd}`)
             return
         }
-        componentPath = resolvePath(path.relative(pwd, componentsPath))
+        // if(pwd.indexOf('pages\\cates')>-1 || (pwd.indexOf('pages\\equity')>-1 && pwd.indexOf('info')==-1)){
+        //     console.log('toComponent 拿到所有 components 配置：');
+        //     console.log('resolve: '+path.relative(pwd, componentsPath)+' ,pwd: '+ pwd+' ,componentsPath: '+componentsPath+ ' ,root: '+root);
+        // }
+        //获取 components 目录在项目中的相对路径 
+        componentPath = resolvePath(path.relative(pwd, componentsPath));
         // 获取 subPackage 内部 component
     } else if (modPath.startsWith('~')) {
+        //绝对路径
         modPath = modPath.replace('~', '')
-        componentPath = '/components'
+        componentPath = '/components';
     }
+    
     if (componentPath) {
-        let componentName = path.basename(modPath)
+        //取 basename 的原因：存在这样的组件：~cards/card-lottery，确实是要取 / 分割的最后一个路径名
+        let componentName = path.basename(modPath);
+        //首页的 path.dirname(modPath) 反正都是 . ，其它有 cards/card-order 的待验证
         if (path.dirname(modPath) !== '.') {
-            componentPath = `${componentPath}/${path.dirname(modPath)}`
+            componentPath = `${componentPath}/${path.dirname(modPath)}`;
         }
-        components[modName] = `${componentPath}/${componentName}/${componentName}`
+        //拼接成了 E:xxx/components/coupon-info/coupon-info 这样
+        components[modName] = `${componentPath}/${componentName}/${componentName}`;
+        
     } else {
-        components[modName] = modPath
+        //走 @smartbreeze 的 npm 包的，进来了这里
+        components[modName] = modPath;
     }
+
+    
+    //到了这里，拿到了所有页面代码中 components 配置项中的内容，怎么拿到的？
 }
 
 exports.toComponent = toComponent
@@ -168,6 +229,7 @@ function resolveComponent(content, file, config = {}) {
     var pageConfig = {
         usingComponents: {}
     }
+    // config.commonPageConfig  小程序插件有默认的，小程序本身没有默认的
     if (config.commonPageConfig) {
         merge(pageConfig, config.commonPageConfig)
         if (config.commonPageConfig.usingComponents) {
@@ -177,11 +239,17 @@ function resolveComponent(content, file, config = {}) {
             })
         }
     }
+    
+    // if((/@component\(['"](.*)['"]\)[;]?/g).test(content)){
+    //     console.log(content);
+    //     console.log('dirname: ' + file.dirname);
+    // }
     // 替换@component('组件')
     content = content.replace(/@component\(['"](.*)['"]\)[;]?/g, function (input, mod, modPath) {
         toComponent(pageConfig.usingComponents, mod, mod, file.dirname)
         return ''
     })
+
     // 替换 components 声明组件（eslint）
     // components: {
     // shortcut: '~shortcut', 顶层 components
@@ -189,14 +257,23 @@ function resolveComponent(content, file, config = {}) {
     // "list": "@xbreeze/micro-list" node_modules | default
     // }
 
-    content = genIdentifierComponents(content, file.dirname, pageConfig)
+    //小程序构建之后，pageConfig 里面只有 usingComponents 的配置
+    //插件构建之后，pageConfig 里面有 navigationStyle 配置。。。，貌似还是在 genIdentifierComponents 里面被加上的
+
+    //页面中的 components 配置在这里，通过 babel 转换为 ast，然后被提取出来成为了 useComponents
+    content = genIdentifierComponents(content, file.dirname, pageConfig);
+    //获取 json 文件的路径名
     let jsonFile = file.path.replace(file.extname, '.json')
-    let platformJsonFile = `${file.path.replace(file.extname, '')}.${config.platform}.json`
+    let platformJsonFile = `${file.path.replace(file.extname, '')}.${config.platform}.json`;
+    
     if (config.enableEnvsResolve && fs.existsSync(platformJsonFile)) {
         jsonFile = platformJsonFile
     }
+    //页面 js 中的 components 配置 json 要和页面 json 中的配置合并 
     if (fs.existsSync(jsonFile)) {
-        jsonFile = fs.readFileSync(jsonFile).toString()
+        //自身存在json 文件的目录，建议是和默认配置合并，而不是直接覆盖，当前小程序插件就存在这样的问题
+        // console.log('存在json文件的目录：'+file.dirname);
+        jsonFile = fs.readFileSync(jsonFile).toString();
         try {
             jsonFile = JSON.parse(jsonFile)
         } catch (err) {
@@ -205,9 +282,11 @@ function resolveComponent(content, file, config = {}) {
     } else {
         jsonFile = {}
     }
+
+    //json 文件的配置应该能覆盖全局的配置，而不是全局的怎么都覆盖 json 文件的  { "navigationStyle": "default" },
     return {
         content,
-        componentJson: JSON.stringify(merge(jsonFile, pageConfig), null, 4)
+        componentJson: JSON.stringify(merge({ "navigationStyle": "default" }, jsonFile, pageConfig), null, 4)
     }
 }
 
@@ -222,12 +301,14 @@ function genIdentifierComponents(
 ) {
     const ast = parse(code, {
         sourceType: 'module'
-    })
+    });
+    //@babel/traverse 用于遍历 @babel/parse 生成的 ast
     traverse(ast, {
         enter(path) {
+            //components 的类型在 babel 中被定义为 identifier
             if ((isIdentifier(path.node) && path.node.name === 'components') || (isStringLiteral(path.node) && path.node.value === 'components')) {
                 let parentNode = path.parent
-                let value = parentNode.value
+                let value = parentNode.value;
                 if (parentNode.type === 'VariableDeclarator') {
                     parentNode.init.properties.forEach(prop => {
                         // StringLiteral | Literal
@@ -327,7 +408,8 @@ exports.normalizeUrl = function (url) {
 class Cache {
     constructor(conf) {
         this.key = `__FILE_CACHE_${conf.namespace}`
-        this.cachePath = path.resolve(process.cwd(), `node_modules/.ovestack/${this.key}`)
+        //@ .ovestack 暂时换成了 .aixy，备注下
+        this.cachePath = path.resolve(process.cwd(), `node_modules/.aixy/${this.key}`)
         if (fs.existsSync(this.cachePath)) {
             shelljs.rm('-r', this.cachePath)
         }
@@ -433,7 +515,11 @@ exports.definePlugin = function (
         callback(null, file)
     })
 }
-
+/**
+ * 平台适配器，用于适配 alipay 和 字节跳动 小程序
+ * @param {*} config 
+ * @returns 
+ */
 exports.adapterJsPlugin = function (config) {
     return through2.obj(function (file, enc, callback) {
         if (file.isBuffer() && file.extname === '.js') {
@@ -441,9 +527,11 @@ exports.adapterJsPlugin = function (config) {
                 let content = file.contents.toString()
                 switch (config.platform) {
                     case 'alipay':
+                        //wx. 替换为 my.
                         content = content.replace(new RegExp(`\\bwx\.\\b`, 'gm'), 'my.')
                         break
                     case 'tt':
+                        //wx. 替换为 tt. 
                         content = content.replace(new RegExp(`\\bwx\.\\b`, 'gm'), 'tt.')
                         break
                 }
@@ -475,6 +563,7 @@ var adapterHtml = function (tree, platform) {
         if (item.type === 'tag') {
             switch (platform) {
                 case 'alipay':
+                    //支付宝统一为 wxs 方式导入 js
                     if (item.name === 'wxs') {
                         item.name = 'import-sjs'
                         if (item.attribs) {
@@ -549,6 +638,7 @@ exports.adapterHtmlPlugin = function (config) {
                 switch (config.platform) {
                     case 'alipay':
                     case 'tt':
+                        //用于编辑 XML/HTML/RSS，产生流，为什么要这么做呢？
                         var tree = htmlparser2.parseDOM(content, {
                             xmlMode: true,
                             decodeEntities: true

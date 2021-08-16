@@ -1,9 +1,11 @@
 const path = require('path')
-const {series, parallel, src, dest, watch, lastRun, task} = require('gulp')
+const { series, parallel, src, dest, watch, lastRun, task } = require('gulp')
 const fs = require('fs')
 const rename = require('gulp-rename')
 const less = require('gulp-less')
-const cleanCSS = require('gulp-clean-css')
+const cleanCSS = require('gulp-clean-css');
+const minifyJs = require('gulp-js-minify');
+// const uglifyEs = require('gulp-uglify-es').default;
 const stylus = require('gulp-stylus')
 const through2 = require('through2')
 //html 解析器
@@ -12,23 +14,24 @@ const alias = require('gulp-style-aliases')
 const Buffer = require('buffer').Buffer
 const css = require('css')
 const plumber = require('gulp-plumber')
-const {genRouter, genSubPackages, resolveComponent, createStreamFromFile, isHTTP, isBase64, toHash, toBase64, inlineSvg, normalizeUrl, toComponent, Cache, logger, definePlugin, adapterJsPlugin, adapterHtmlPlugin, babelTransform, resolvePath} = require('./utils')
-const {isUndefined, isFunction} = require('util')
+const { genRouter, genSubPackages, resolveComponent, createStreamFromFile, isHTTP, isBase64, toHash, toBase64, inlineSvg, normalizeUrl, toComponent, Cache, logger, definePlugin, adapterJsPlugin, adapterHtmlPlugin, babelTransform, resolvePath } = require('./utils')
+const { isUndefined, isFunction } = require('util')
 const anymatch = require('anymatch')
-const {rm} = require('shelljs')
+const { rm } = require('shelljs')
 const Config = require(require.resolve('../../config')) //根目录的config.js
 const config = Config.config
-const {resolve: resolveUrl, parse: parseUrl} = require('url')
+const { resolve: resolveUrl, parse: parseUrl } = require('url')
+const { fieldEnds } = require('tar')
 //这里的root 居然是 E:\smartbreeze\work\dist\wechat\\sandbox
 const DIST_PATH = path.relative(config.root, config.publicPath) //dist/wechat/sandbox
-console.log(`publicPath: ${config.publicPath}`)
+// console.log(`publicPath: ${config.publicPath}`)
 const INCLUDE_FILES = fromSrc('**/*', '!override.config.js', '!.DS_Store', '!**/init', '!**/*.less', '!**/*.stylus', '!**/*.tpl', '!**/pages/**/*.js', '!**/pages/**/*.json', '!**/*.{jpg,jpeg,png,gif,svg}', '!**/*.{zip,tgz}', '!app.json', '!package-lock.json')
 const EXCLUDE_FROM_CNPM_PATH = '**/node_modules/!(@xbreeze)'
 const DIST_PROJECT_PATH = path.join(DIST_PATH, config.projectPath) //dist/wechat/sandbox/project
 const DIST_ASSERT_PATH = path.join(DIST_PATH, config.assertPath);
 
-console.log(`config.projectPath:`+config.projectPath);
-console.log(`path.sep: ${path.sep} ,DIST_PATH: ${DIST_PATH} ,DIST_ASSERT_PATH: ${DIST_ASSERT_PATH}, DIST_PROJECT_PATH: ${DIST_PROJECT_PATH}, DIST_ASSERT_PATH: ${DIST_ASSERT_PATH}`)
+// console.log(`config.projectPath:`+config.projectPath);
+// console.log(`path.sep: ${path.sep} ,DIST_PATH: ${DIST_PATH} ,DIST_ASSERT_PATH: ${DIST_ASSERT_PATH}, DIST_PROJECT_PATH: ${DIST_PROJECT_PATH}, DIST_ASSERT_PATH: ${DIST_ASSERT_PATH}`)
 
 function fromSrc(...args) {
     return [...args, `!${DIST_PATH.split(path.sep)[0]}/**`]
@@ -104,7 +107,7 @@ async function toUrl(defUrl, file, imageDomain) {
             }
         }
     }
-//变为标准的 / 分割的 路径字符串
+    //变为标准的 / 分割的 路径字符串
     url = normalizeUrl(url.replace(parsedUrl.search, ''))
     var cwd = normalizeUrl(process.cwd())
     if (config.useHash && !isIgnoreHash(url)) {
@@ -131,7 +134,7 @@ function toDestUrl(url, file) {
 function isIgnoreHash(url) {
     return config.ignoreHash && anymatch(config.ignoreHash, url)
 }
-//这里真的可以有缓存的吗？如果我资源文件变更了，url 还一样呢？
+//@ques 这里真的可以有缓存的吗？如果我资源文件变更了，url 还一样呢？
 function getHashByUrl(url) {
     var cache = HASH_MAP[url]
     if (!cache) {
@@ -142,6 +145,7 @@ function getHashByUrl(url) {
 }
 
 function translateUrl() {
+    console.log('translateUrl');
     return through2.obj(function (file, _, cb) {
         //file 为一个对象，其类型为 File，nodejs 有没有这个原生类型？
         if (file.isBuffer()) {
@@ -277,7 +281,7 @@ function translateLess() {
 
 function translateLessWithTheme(theme, themeData) {
     function addRuleWithPrefix(rules) {
-        var prefix = `.${config.themePrefix}${theme}`
+        var prefix = `.${config.themePrefix}${theme}`;
         // 获取__ROOT__ 标识
         // 遍历所有 selector
         // 匹配
@@ -335,6 +339,8 @@ function translateLessWithTheme(theme, themeData) {
         return matched && fs.existsSync(extFile)
     }
     return function translateTheme() {
+        let target = config.projectPath+'/test';
+        console.log(`target: ${target}`);
         return src(fromSrc('**/*.less'), {
             ignore: [`${EXCLUDE_FROM_CNPM_PATH}/**/*.less`]
         })
@@ -364,7 +370,9 @@ function translateLessWithTheme(theme, themeData) {
                             // 遍历所有节点
                             // 节点名称前加 themeId
                             addRuleWithPrefix(cssObj.stylesheet.rules)
-                            content = css.stringify(cssObj)
+                            // console.log('file: '+file.path);
+                            content = css.stringify(cssObj);
+                            // console.log(content);
                             file.contents = Buffer.from(content)
                         } catch (err) {
                             logger.error(err)
@@ -381,6 +389,7 @@ function translateLessWithTheme(theme, themeData) {
                     path.extname = getExt('css')
                 })
             )
+            .pipe(toDest(target))
             .pipe(
                 dest(path.join(DIST_PATH, config.projectPath), {
                     overwrite: true,
@@ -405,7 +414,7 @@ function translateStylus() {
         .pipe(toDest(config.projectPath))
 }
 function translateTpl() {
-    // @ext 和 非 @ext 文件中的tmp
+    // @ext 和 非 @ext 文件中的 tpl
     return src(fromSrc(`**/!(${config.prefix})/*.tpl`, `**/${config.prefix}/*.tpl`), {
         ignore: [`${EXCLUDE_FROM_CNPM_PATH}/**/*.tpl`],
         since: lastRun(translateTpl)
@@ -428,11 +437,13 @@ function translateTpl() {
                     try {
                         // @todo 这里做了什么，需要研究下
                         if (config.enableTheme || (config.globalComponents && config.globalComponents.enable)) {
+                            //乱码的两种猜测：1、在转为 tree 结构的时候已经出错   2、tree 结构转为 html 的时候出错
                             let content = file.contents.toString()
                             let tree = htmlparser2.parseDOM(content, {
                                 xmlMode: true,
                                 decodeEntities: true
                             })
+
                             if (config.enableTheme) {
                                 var parentNodes = tree.filter(element => {
                                     return !element.parent
@@ -459,11 +470,12 @@ function translateTpl() {
                                     }
                                 }
                             }
-                            file.contents = Buffer.from(
-                                htmlparser2.DomUtils.getOuterHTML(tree, {
-                                    xmlMode: true
-                                })
-                            )
+                            let html = htmlparser2.DomUtils.getOuterHTML(tree, {
+                                xmlMode: true,
+                                decodeEntities: false
+                            });
+
+                            file.contents = Buffer.from(html);
                         }
                     } catch (err) {
                         logger.error(err)
@@ -516,19 +528,22 @@ function translateJs() {
             through2.obj(function (file, _, cb) {
                 if (file.isBuffer()) {
                     try {
-                        let content = file.contents.toString()
+                        let content = file.contents.toString();
+                        // commonPageConfig 配置里，useComponents 已经被读取到里面来了，从哪里读取到的，默认每个页面都给加了一个 loading 组件
                         let commonPageConfig = {}
                         if (config.commonPageConfig && config.commonPageConfig.enable) {
                             commonPageConfig = {
                                 ...config.commonPageConfig.injection
                             }
                         }
+                        
+                        //非插件的时候，pages 目录下的 页面的 json 文件就能和 usingComponents 合并到一起
                         let re = resolveComponent(content, file, {
                             commonPageConfig,
                             root: config.root,
                             platform: config.platform,
-                            enableEnvsResolve: config.enableEnvsResolve
-                        })
+                            enableEnvsResolve: config.enableEnvsResolve  //允许多平台编译
+                        });
                         file.contents = Buffer.from(re.content)
                         let newFile = file.clone()
                         newFile.contents = Buffer.from(re.componentJson)
@@ -561,6 +576,7 @@ function translateImage() {
             through2.obj(function (file, _, cb) {
                 if (file.isBuffer()) {
                     try {
+                        //所有引用的图片更换为线上路径
                         file.path = path.join(file.cwd, toDestUrl(file.path, file))
                     } catch (err) {
                         logger.error(err)
@@ -572,19 +588,30 @@ function translateImage() {
         )
         .pipe(toDest(config.assertPath))
 }
-
+/**
+ * 处理 app.json
+ * 文件都产出到了 project 目录，再开始处理 app.json
+ * @returns 
+ */
 function generateApp() {
-    var router = []
-    var subPackages = []
-    var distProjectPath = path.join(config.root, DIST_PROJECT_PATH)
-    var distPagesPath = path.join(distProjectPath, path.relative(config.root, config.pagesPath))
+    var router = [];
+    var subPackages = [];
+    //根据编译后的产出目录中的 pages 目录下的文件，自动生成 app.json 中的 pages 配置
+    var distProjectPath = path.join(config.root, DIST_PROJECT_PATH);  //dist/wechat/sandbox/project
+    var distPagesPath = path.join(distProjectPath, path.relative(config.root, config.pagesPath));  // dist/wechat/sandbox/project/pages
+    //生成主包的目录
+    // pages 目录存在 ，小程序才这样处理，插件会跳过这这里，插件项目源码的 app.json 不需要处理(其实也应该做处理)
     if (fs.existsSync(distPagesPath)) {
-        genRouter(distPagesPath, router, distProjectPath)
+        genRouter(distPagesPath, router, distProjectPath);
     }
+    //处理分包以及分包下的路径，问题在于，现在分包也是可以引入 plugin 的
+    //@todo 应该在分包下面放置一个 config.json，用于合并分包其它配置
     genSubPackages(distProjectPath, subPackages, function (filepath) {
-        let pathname = path.basename(filepath)
+        let pathname = path.basename(filepath);
+        // console.log(`pathname: ${pathname}`);
+        //config.subPackages 用于存储当前已经确定是分包的目录，哪些目录是分包目录，可通过 override.config.js 的 subpackages 配置项配置
         return config.subPackages.indexOf(pathname) !== -1
-    })
+    });
     return src('app.json', {
         allowEmpty: true
     })
@@ -598,7 +625,8 @@ function generateApp() {
                         content.subPackages = content.subPackages || []
                         content.subPackages = content.subPackages.concat(subPackages)
                         content.pages = content.pages || []
-                        content.pages = content.pages.concat(router)
+                        content.pages = content.pages.concat(router);
+                        //指定首页
                         if (config.indexPage && router.indexOf(config.indexPage) !== -1) {
                             content.pages.splice(content.pages.indexOf(config.indexPage), 1)
                             content.pages.unshift(config.indexPage)
@@ -609,6 +637,7 @@ function generateApp() {
                                 toComponent(content.usingComponents, key, config.globalComponents.components[key], config.root)
                             })
                         }
+                        //obj 转为 json 字符串的时候，冒号与属性值之间的空格数目为 4
                         content = JSON.stringify(content, null, 4)
                         let newFile = file.clone()
                         newFile.contents = Buffer.from(`export default ${content}`)
@@ -627,10 +656,23 @@ function generateApp() {
         .pipe(toDest(config.projectPath))
 }
 
+//压缩css
 function optimize() {
     return src(normalizeUrl(path.join(DIST_PATH, config.projectPath, `**/*${getExt('css')}`)))
         .pipe(plumber())
         .pipe(cleanCSS())
+        .pipe(toDest(config.projectPath))
+}
+//压缩js
+function optimizeJs() {
+    console.log('optimizeJs');
+    return src(normalizeUrl(path.join(DIST_PATH, config.projectPath, `**/*.js`)))
+        .pipe(plumber())
+        .pipe(minifyJs({
+            mangle: false,
+            compress: false
+        }))
+        .pipe(toDest(config.projectPath+'/test'))
         .pipe(toDest(config.projectPath))
 }
 
@@ -710,7 +752,7 @@ var defaultTask = function () {
         )
     }
     if (config.cmdArgv.optimize) {
-        defaultTasks.push(optimize)
+        defaultTasks.push(optimize);  //optimizeJs
     }
     if (config.cmdArgv.watch) {
         var watcher = watch(fromSrc('**/*'), {

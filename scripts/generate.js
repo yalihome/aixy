@@ -11,7 +11,7 @@ if (!argv.t && !argv.type) {
 }
 const type = argv.t || argv.type
 const [mod, name] = argv._
-var templatePath = path.dirname(require.resolve('ovestack-template'))
+var templatePath = path.dirname(require.resolve('aixy-template'))
 let template = path.join(templatePath, 'template', type, mod)
 if (fs.existsSync(template)) {
     try {

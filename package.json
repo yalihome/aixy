@@ -1,9 +1,9 @@
 {
-    "name": "ovestack",
-    "version": "2.2.2-0",
+    "name": "aixy",
+    "version": "2.2.8",
     "description": "scaffolding base on webpack",
     "bin": {
-        "ovestack": "./bin/cli.js"
+        "aixy": "./bin/cli.js"
     },
     "dependencies": {
         "@babel/core": "^7.12.3",
@@ -47,11 +47,14 @@
         "fork-ts-checker-webpack-plugin": "^5.2.1",
         "gulp": "^4.0.2",
         "gulp-clean-css": "^4.3.0",
+        "gulp-js-minify": "0.0.3",
         "gulp-less": "^4.0.1",
         "gulp-plumber": "^1.2.1",
         "gulp-rename": "^2.0.0",
         "gulp-style-aliases": "^1.1.11",
         "gulp-stylus": "^2.7.0",
+        "gulp-uglify": "^3.0.2",
+        "gulp-uglify-es": "^3.0.0",
         "html-loader": "^1.3.2",
         "html-webpack-plugin": "^5.0.0-alpha.7",
         "htmlparser2": "^5.0.1",
@@ -63,7 +66,7 @@
         "minimist": "^1.2.5",
         "miniprogram-ci": "^1.0.83",
         "nodemon": "^2.0.6",
-        "ovestack-template": "git+https://git.wxpai.cn/pi-plusplus/fork-from-github/ovestack-template.git",
+        "aixy-template": "git+https://gitee.com/yali__home/aixy-template.git",
         "postcss-loader": "^4.0.4",
         "postcss-preset-env": "^6.7.0",
         "prettier": "^2.1.2",
@@ -92,7 +95,7 @@
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1"
     },
-    "author": "otarim@hudongpai.com",
+    "author": "katy@hudongpai.com",
     "license": "ISC",
     "devDependencies": {
         "husky": "^4.3.0"

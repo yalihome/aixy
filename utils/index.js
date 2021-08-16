@@ -169,6 +169,7 @@ var logger = {
 
 exports.logger = logger
 
+// sources 都是如何被转换为 数组的;——target 之后的无论多少个参数，最终都转换为数组
 var merge = function (target, ...sources) {
     if (!sources.length) return target
     const source = sources.shift()
