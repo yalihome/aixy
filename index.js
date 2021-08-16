@@ -33,7 +33,11 @@ program
                 )
                 break
             default:
-                process.env.NODE_ENV = 'development'
+                process.env.NODE_ENV = 'development';
+                // console.log('加上dev');
+                // console.log(require.resolve('./scripts/dev'));
+                // ['E:\gitee\aixy\scripts\dev.js', 'dev']
+                // 带命令运行脚本
                 spawn('node', [require.resolve('./scripts/dev')].concat(process.argv.slice(2)))
                 break
         }

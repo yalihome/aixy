@@ -6,6 +6,7 @@ function pwdPath(filePath) {
     return path.join(process.cwd(), filePath)
 }
 
+//同步 @server 文件到 server
 function syncServer() {
     shelljs.mkdir('-p', pwdPath('server/conf/@conf'))
     shelljs.cp('-r', `${pwdPath('@server/business/*')}`, pwdPath('server/business'))
@@ -22,7 +23,7 @@ exports.init = function (Config) {
             var self = this
             this.setConfig({
                 dlls: [],
-                entry: resolveApp('./components/boot/boot.js'),
+                entry: resolveApp('./components/boot/boot.js'),  //入口是 boot 文件
                 root: resolveApp('./components'),
                 templateFile: resolveApp('./views/index.ejs'),
                 componentModulesPath: resolveApp('./component_modules'),
@@ -38,7 +39,7 @@ exports.init = function (Config) {
                         return JSON.stringify(`${self.config.urlPrefix}${self.config.assertPath}`)
                     }
                 },
-                hmrPath: `http://${utils.getIp()}:{port}/__webpack_hmr`
+                hmrPath: `http://${utils.getIp()}:{port}/__webpack_hmr`  // hmr 的路径
             })
         }
         onInit(env) {

@@ -29,41 +29,53 @@ const dotenv = require('dotenv')
 dotenv.config()
 var ENV_VARS = {}
 if (fs.existsSync(resolveApp('.env'))) {
-    ENV_VARS = dotenv.parse(fs.readFileSync(resolveApp('.env')))
+    ENV_VARS = dotenv.parse(fs.readFileSync(resolveApp('.env')));
+    // console.log('ENV_VARS:');
+    // console.log(ENV_VARS);
 }
 class Config {
     constructor() {
+        // console.log('两个 node_modules：');
+        // console.log(resolveApp('node_modules')) 
+        // console.log(resolvePath('node_modules'));
         this.config = {
-            assertPath: `${platform}/${version}`,
+            assertPath: `${platform}/${version}`,  // desktop/1.0.0
             urlPrefix: `${urlPrefix || '/'}`,
-            publicPath: resolveApp('public'),
-            nodeModulesPath: [resolveApp('node_modules'), resolvePath('node_modules')],
-            enableDll: false,
+            publicPath: resolveApp('public'),  // public 目录的位置
+            nodeModulesPath: [resolveApp('node_modules'), resolvePath('node_modules')],  // 项目 node_modules 目录和 工具的 node_modules 目录
+            enableDll: false,  // 是否开启缓存?
             consts: {
                 'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV)
             },
-            packageJson,
-            ENV_VARS,
+            packageJson,  // package.json文件的配置
+            ENV_VARS,  //环境变量
             cmdArgv: argv
         }
+        // console.log('this.config:');
+        // console.log(this.config);
     }
     setConfig(conf) {
-        merge(this.config, conf)
+        //添加配置到 this.config，就是覆盖默认配置
+        merge(this.config, conf);
     }
     trigger(event, ...args) {
+        //触发事件
+        // console.log('触发事件：');
+        // console.log(event);
         if (this[event]) {
             this[event](...args)
         }
     }
 }
-
+//全局配置
 var config = new Config()
-
+//读取项目根目录的 override.config.js
 var OverrideConfig = getProjectConf()
 
 var profile = OverrideConfig.profile || 'default'
 var ProfileConfig
 if (profile) {
+    //根据 profile 来读取配置( angularjs/vue 的)
     const profileConfigFile = resolvePath('profile', profile, 'config.js')
     if (fs.existsSync(profileConfigFile)) {
         ProfileConfig = require(profileConfigFile)
@@ -75,7 +87,7 @@ if (profile) {
         }
     }
 }
-
+//如果有 init 方法，直接通过 OverrideConfig 直接重新 new 一个实例，覆盖原来的 config 实例
 if (isFunction(OverrideConfig.init)) {
     OverrideConfig = OverrideConfig.init(ProfileConfig || Config)
     config = new OverrideConfig()

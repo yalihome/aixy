@@ -1,6 +1,7 @@
 const {merge} = require('webpack-merge')
 const fs = require('fs')
 const Config = getConfig()
+//这里， webpack 的配置已经合并进来了
 const config = Config.config
 const DirectoryNamedWebpackPlugin = require('directory-named-webpack-plugin')
 const helpers = requireMod('profile/helpers')
