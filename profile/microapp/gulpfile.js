@@ -339,8 +339,8 @@ function translateLessWithTheme(theme, themeData) {
         return matched && fs.existsSync(extFile)
     }
     return function translateTheme() {
-        let target = config.projectPath+'/test';
-        console.log(`target: ${target}`);
+        // let target = config.projectPath+'/test';
+        // console.log(`target: ${target}`);
         return src(fromSrc('**/*.less'), {
             ignore: [`${EXCLUDE_FROM_CNPM_PATH}/**/*.less`]
         })
@@ -358,8 +358,11 @@ function translateLessWithTheme(theme, themeData) {
             )
             .pipe(
                 through2.obj(function (file, _, cb) {
+                    // console.log('theme file:');
+                    // console.log(file);
                     if (file.isBuffer()) {
                         if (extFileExists(file)) {
+                            console.log('文件存在');
                             return cb()
                         }
                         // add namespace
@@ -379,6 +382,8 @@ function translateLessWithTheme(theme, themeData) {
                             return cb(err, file)
                         }
                     }
+                    console.log('产出路径：');
+                    console.log(path.join(DIST_PATH, config.projectPath));
                     cb(null, file)
                 })
             )
@@ -389,7 +394,7 @@ function translateLessWithTheme(theme, themeData) {
                     path.extname = getExt('css')
                 })
             )
-            .pipe(toDest(target))
+            // .pipe(toDest(target))
             .pipe(
                 dest(path.join(DIST_PATH, config.projectPath), {
                     overwrite: true,
@@ -744,9 +749,11 @@ var watchHandler = function (event, file) {
 var defaultTask = function () {
     Config.trigger('onInit', process.env.NODE_ENV)
     var defaultTasks = [parallel(sync, translateLess, translateTpl, translateJs, translateImage), generateApp]
+    //命令行参数有 --theme
     if (config.cmdArgv.theme && config.enableTheme) {
         defaultTasks.push(
             ...config.themes.map(theme => {
+                //颜色名及其配置
                 return translateLessWithTheme(theme, config.themeData[theme])
             })
         )

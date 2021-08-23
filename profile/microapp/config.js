@@ -65,7 +65,7 @@ exports.init = function (Config) {
                     },
                     ...ENV_VARS
                 },
-                platform: 'wechat',
+                platform: 'wechat',  //这个 platform 用 env 指定不是更好？
                 watchExclude: [],
                 syncOptions: {},
                 enableEnvsResolve: false,
