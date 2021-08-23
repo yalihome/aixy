@@ -1,6 +1,6 @@
 {
     "name": "aixy",
-    "version": "2.2.8",
+    "version": "2.2.9",
     "description": "scaffolding base on webpack",
     "bin": {
         "aixy": "./bin/cli.js"
