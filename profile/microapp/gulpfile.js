@@ -541,7 +541,7 @@ function translateJs() {
                                 ...config.commonPageConfig.injection
                             }
                         }
-                        
+
                         //非插件的时候，pages 目录下的 页面的 json 文件就能和 usingComponents 合并到一起
                         let re = resolveComponent(content, file, {
                             commonPageConfig,
@@ -626,7 +626,33 @@ function generateApp() {
                 if (file.isBuffer()) {
                     let content = file.contents.toString()
                     try {
-                        content = JSON.parse(content)
+                        content = JSON.parse(content);
+                        content.plugins = content.plugins || {};
+                        let plugins = Object.keys(content.plugins);
+                        let hasLiveConf = false;
+                        for (var key of plugins) {
+                            if (key === 'live-player-plugin') {
+                                hasLiveConf = true;
+                            }
+                        }
+                        console.log(`hasLiveConf: ${hasLiveConf}`);
+                        //去掉直播间配置
+                        if (hasLiveConf && config.enableLive === false) {
+                            logger.log('*无直播间版本');
+                            delete content.plugins[key];
+                        }
+
+                        if (!hasLiveConf && config.enableLive === true) {
+                            //有则不处理，无则添加
+                            logger.log("*有直播间版本");
+                            content.plugins['live-player-plugin'] = {
+                                "version": config.liveVersion || "1.3.0",
+                                "provider": "wx2b03c6e691cd7370"
+                            };
+                        }
+                        console.log('content.plugins:');
+                        console.log(content.plugins);
+
                         content.subPackages = content.subPackages || []
                         content.subPackages = content.subPackages.concat(subPackages)
                         content.pages = content.pages || []
@@ -677,7 +703,7 @@ function optimizeJs() {
             mangle: false,
             compress: false
         }))
-        .pipe(toDest(config.projectPath+'/test'))
+        .pipe(toDest(config.projectPath + '/test'))
         .pipe(toDest(config.projectPath))
 }
 
