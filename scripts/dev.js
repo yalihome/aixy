@@ -9,7 +9,9 @@ const nodemon = require('nodemon')
 const webpackConfFile = resolvePath('profile', config.profile, 'webpack.dev.conf')
 const utils = requireMod('utils')
 const ENV = 'development'
-const {logger} = require('../utils')
+const {logger} = require('../utils');
+const {writeFile} = require('fs');
+const path = require('path');
 
 //初始化，也就是创建 server/private/log 文件和同步 @server 到 server 目录
 Config.trigger('onInit', ENV)
@@ -18,7 +20,9 @@ Config.trigger('onInit', ENV)
 if (config.enableDll) {
     //启用 dll 的话，就引入 dll 配置，也就是缓存
     const dllConf = require(resolvePath('profile', config.profile, 'webpack.dll.conf'))
+    //调用一次 webpack
     let compiler = webpack(dllConf)
+    //开始读取 record 之前调用
     compiler.run(err => {
         if (!err) {
             devServe()
@@ -31,7 +35,7 @@ if (config.enableDll) {
 function devServe() {
     var devServerConf = config.devServer || {}
     utils.getPort().then(port => {
-        port = devServerConf.port || port
+        port = devServerConf.port || port;
         var webpackConf = require(webpackConfFile)
         if (devServerConf.hot) {
             // add hot-reload related code to entry chunks
@@ -41,7 +45,15 @@ function devServe() {
             })
         }
         //合并配置到 this.config
-        Config.trigger('onConfig', webpackConf, ENV)
+        Config.trigger('onConfig', webpackConf, ENV);
+        console.log('最终配置：');
+        console.log(webpackConf);
+        //将这些配置写入文件查看
+        writeFile(path.join(process.cwd(),'test.json'),JSON.stringify(webpackConf), {flag: 'a'}, (err)=>{
+            if(!err){
+                console.log('保存配置成功');
+            }
+        })
         var compiler = webpack(webpackConf)
         let wdmLogger = compiler.getInfrastructureLogger('webpack-dev-middleware')
         var app = connect()
