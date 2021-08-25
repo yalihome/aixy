@@ -145,7 +145,7 @@ function getHashByUrl(url) {
 }
 
 function translateUrl() {
-    console.log('translateUrl');
+    // console.log('translateUrl');
     return through2.obj(function (file, _, cb) {
         //file 为一个对象，其类型为 File，nodejs 有没有这个原生类型？
         if (file.isBuffer()) {
@@ -635,7 +635,7 @@ function generateApp() {
                                 hasLiveConf = true;
                             }
                         }
-                        console.log(`hasLiveConf: ${hasLiveConf}`);
+                        // console.log(`hasLiveConf: ${hasLiveConf}`);
                         //去掉直播间配置
                         if (hasLiveConf && config.enableLive === false) {
                             logger.log('*无直播间版本');
@@ -650,8 +650,8 @@ function generateApp() {
                                 "provider": "wx2b03c6e691cd7370"
                             };
                         }
-                        console.log('content.plugins:');
-                        console.log(content.plugins);
+                        // console.log('content.plugins:');
+                        // console.log(content.plugins);
 
                         content.subPackages = content.subPackages || []
                         content.subPackages = content.subPackages.concat(subPackages)
@@ -696,7 +696,7 @@ function optimize() {
 }
 //压缩js
 function optimizeJs() {
-    console.log('optimizeJs');
+    // console.log('optimizeJs');
     return src(normalizeUrl(path.join(DIST_PATH, config.projectPath, `**/*.js`)))
         .pipe(plumber())
         .pipe(minifyJs({
