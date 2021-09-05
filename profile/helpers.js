@@ -7,7 +7,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin')
 const {walk} = requireMod('utils')
 
 function assetsPath(..._path) {
-    console.log('assertPath: '+config.assertPath);
+    // console.log('assertPath: '+config.assertPath);
     return path.posix.join(config.assertPath, ..._path)
 }
 

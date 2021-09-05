@@ -72,7 +72,7 @@ module.exports = merge(baseWebpackConfig, {
                         loader: requirePath('loader/fis3.js')
                     }
                 ],
-                include: [config.root, config.componentModulesPath, /@xbreeze/]
+                include: [config.root, config.componentModulesPath, /@(xbreeze|smart-breeze)/]
             },
             {
                 test: /\.js$/,

@@ -9,7 +9,10 @@ var CssMinimizerPlugin = require('css-minimizer-webpack-plugin')
 const TerserPlugin = require('terser-webpack-plugin')
 const SWPlugin = requireMod('plugins/sw')
 
-baseWebpackConfig.entry.app = [].concat(baseWebpackConfig.entry.app, resolvePath('plugins/sw/client.js') + `?enable=${config.pwa}&scope=${config.urlPrefix}&filename=${config.urlPrefix}${config.assertPath}/sw.js`)
+baseWebpackConfig.entry.app = [].concat(
+    baseWebpackConfig.entry.app,
+    resolvePath('plugins/sw/client.js') + `?enable=${config.pwa}&scope=${config.urlPrefix}&filename=${config.urlPrefix}${config.assertPath}/sw.js`
+)
 module.exports = merge(baseWebpackConfig, {
     module: {
         rules: helpers.styleLoaders({
@@ -63,7 +66,7 @@ module.exports = merge(baseWebpackConfig, {
         },
         minimizer: [
             new TerserPlugin({
-                exclude: /node_modules\/(?!.*\/@xbreeze\/).*$/,
+                exclude: /node_modules\/(?!.*\/@(xbreeze|smart-breeze)\/).*$/,
                 parallel: true
             }),
             new CssMinimizerPlugin()

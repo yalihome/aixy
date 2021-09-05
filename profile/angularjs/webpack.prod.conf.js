@@ -55,7 +55,7 @@ module.exports = merge(baseWebpackConfig, {
         },
         minimizer: [
             new TerserPlugin({
-                exclude: /node_modules\/(?!.*\/@xbreeze\/).*$/,
+                exclude: /node_modules\/(?!.*\/@(xbreeze|smart-breeze)\/).*$/,
                 parallel: true
             }),
             new CssMinimizerPlugin()

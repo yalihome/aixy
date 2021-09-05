@@ -159,6 +159,8 @@ module.exports = function (content) {
         root = null
     }
     this.cacheable()
+    console.log('routeMap:')
+    console.log(routeMap)
     content = content.replace('__ROUTER_MAP__', routeMap)
     return content
 }

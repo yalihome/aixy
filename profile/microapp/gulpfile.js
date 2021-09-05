@@ -1,10 +1,10 @@
 const path = require('path')
-const { series, parallel, src, dest, watch, lastRun, task } = require('gulp')
+const {series, parallel, src, dest, watch, lastRun, task} = require('gulp')
 const fs = require('fs')
 const rename = require('gulp-rename')
 const less = require('gulp-less')
-const cleanCSS = require('gulp-clean-css');
-const minifyJs = require('gulp-js-minify');
+const cleanCSS = require('gulp-clean-css')
+const minifyJs = require('gulp-js-minify')
 // const uglifyEs = require('gulp-uglify-es').default;
 const stylus = require('gulp-stylus')
 const through2 = require('through2')
@@ -14,21 +14,21 @@ const alias = require('gulp-style-aliases')
 const Buffer = require('buffer').Buffer
 const css = require('css')
 const plumber = require('gulp-plumber')
-const { genRouter, genSubPackages, resolveComponent, createStreamFromFile, isHTTP, isBase64, toHash, toBase64, inlineSvg, normalizeUrl, toComponent, Cache, logger, definePlugin, adapterJsPlugin, adapterHtmlPlugin, babelTransform, resolvePath } = require('./utils')
-const { isUndefined, isFunction } = require('util')
+const {genRouter, genSubPackages, resolveComponent, createStreamFromFile, isHTTP, isBase64, toHash, toBase64, inlineSvg, normalizeUrl, toComponent, Cache, logger, definePlugin, adapterJsPlugin, adapterHtmlPlugin, babelTransform, resolvePath} = require('./utils')
+const {isUndefined, isFunction} = require('util')
 const anymatch = require('anymatch')
-const { rm } = require('shelljs')
+const {rm} = require('shelljs')
 const Config = require(require.resolve('../../config')) //根目录的config.js
 const config = Config.config
-const { resolve: resolveUrl, parse: parseUrl } = require('url')
-const { fieldEnds } = require('tar')
+const {resolve: resolveUrl, parse: parseUrl} = require('url')
+const {fieldEnds} = require('tar')
 //这里的root 居然是 E:\smartbreeze\work\dist\wechat\\sandbox
 const DIST_PATH = path.relative(config.root, config.publicPath) //dist/wechat/sandbox
 // console.log(`publicPath: ${config.publicPath}`)
 const INCLUDE_FILES = fromSrc('**/*', '!override.config.js', '!.DS_Store', '!**/init', '!**/*.less', '!**/*.stylus', '!**/*.tpl', '!**/pages/**/*.js', '!**/pages/**/*.json', '!**/*.{jpg,jpeg,png,gif,svg}', '!**/*.{zip,tgz}', '!app.json', '!package-lock.json')
-const EXCLUDE_FROM_CNPM_PATH = '**/node_modules/!(@xbreeze)'
+const EXCLUDE_FROM_CNPM_PATH = '**/node_modules/!(@(xbreeze|smart-breeze))'
 const DIST_PROJECT_PATH = path.join(DIST_PATH, config.projectPath) //dist/wechat/sandbox/project
-const DIST_ASSERT_PATH = path.join(DIST_PATH, config.assertPath);
+const DIST_ASSERT_PATH = path.join(DIST_PATH, config.assertPath)
 
 // console.log(`config.projectPath:`+config.projectPath);
 // console.log(`path.sep: ${path.sep} ,DIST_PATH: ${DIST_PATH} ,DIST_ASSERT_PATH: ${DIST_ASSERT_PATH}, DIST_PROJECT_PATH: ${DIST_PROJECT_PATH}, DIST_ASSERT_PATH: ${DIST_ASSERT_PATH}`)
@@ -81,9 +81,9 @@ var HASH_MAP = {}
 var BASE64_CACHE = {}
 async function toUrl(defUrl, file, imageDomain) {
     //获取文件中引用的文件的绝对位置(这也可以?)
-    var url = path.resolve(file.dirname, defUrl);
+    var url = path.resolve(file.dirname, defUrl)
     // console.log('资源文件实际路径：'+url);
-    var parsedUrl = parseUrl(url);  //格式化成为对象的路径
+    var parsedUrl = parseUrl(url) //格式化成为对象的路径
     // console.log(parsedUrl);
     //带有 inline  的就嵌入，不带的就
     if (parsedUrl.query && parsedUrl.query === '__inline') {
@@ -257,17 +257,17 @@ function translateLess() {
         .pipe(plumber())
         .pipe(
             alias({
-                '~': config.root  //re
+                '~': config.root //re
             })
         )
         .pipe(
             less({
                 //编译 less
-                relativeUrls: true,  //使用相对位置
-                ...config.lessOptions   //modifyVars 和 OSS-PATH 暂时还不知道怎么使用，还是要去看一下 less.js
+                relativeUrls: true, //使用相对位置
+                ...config.lessOptions //modifyVars 和 OSS-PATH 暂时还不知道怎么使用，还是要去看一下 less.js
             })
         )
-        .pipe(translateUrl())  //资源文件绝对路径更换为对应线上资源域名路径，这里是异步的，pipe 会等待异步代码执行完？
+        .pipe(translateUrl()) //资源文件绝对路径更换为对应线上资源域名路径，这里是异步的，pipe 会等待异步代码执行完？
         .pipe(
             rename(function (path) {
                 // console.log(`less dirname: `+path.dirname);
@@ -281,7 +281,7 @@ function translateLess() {
 
 function translateLessWithTheme(theme, themeData) {
     function addRuleWithPrefix(rules) {
-        var prefix = `.${config.themePrefix}${theme}`;
+        var prefix = `.${config.themePrefix}${theme}`
         // 获取__ROOT__ 标识
         // 遍历所有 selector
         // 匹配
@@ -341,66 +341,68 @@ function translateLessWithTheme(theme, themeData) {
     return function translateTheme() {
         // let target = config.projectPath+'/test';
         // console.log(`target: ${target}`);
-        return src(fromSrc('**/*.less'), {
-            ignore: [`${EXCLUDE_FROM_CNPM_PATH}/**/*.less`]
-        })
-            .pipe(plumber())
-            .pipe(
-                alias({
-                    '~': config.root
-                })
-            )
-            .pipe(
-                less({
-                    relativeUrls: true,
-                    modifyVars: themeData
-                })
-            )
-            .pipe(
-                through2.obj(function (file, _, cb) {
-                    // console.log('theme file:');
-                    // console.log(file);
-                    if (file.isBuffer()) {
-                        if (extFileExists(file)) {
-                            console.log('文件存在');
-                            return cb()
+        return (
+            src(fromSrc('**/*.less'), {
+                ignore: [`${EXCLUDE_FROM_CNPM_PATH}/**/*.less`]
+            })
+                .pipe(plumber())
+                .pipe(
+                    alias({
+                        '~': config.root
+                    })
+                )
+                .pipe(
+                    less({
+                        relativeUrls: true,
+                        modifyVars: themeData
+                    })
+                )
+                .pipe(
+                    through2.obj(function (file, _, cb) {
+                        // console.log('theme file:');
+                        // console.log(file);
+                        if (file.isBuffer()) {
+                            if (extFileExists(file)) {
+                                console.log('文件存在')
+                                return cb()
+                            }
+                            // add namespace
+                            let content = file.contents.toString()
+                            try {
+                                let cssObj = css.parse(content)
+                                // 获取注释包含 root 的节点名称(仅支持一层)
+                                // 遍历所有节点
+                                // 节点名称前加 themeId
+                                addRuleWithPrefix(cssObj.stylesheet.rules)
+                                // console.log('file: '+file.path);
+                                content = css.stringify(cssObj)
+                                // console.log(content);
+                                file.contents = Buffer.from(content)
+                            } catch (err) {
+                                logger.error(err)
+                                return cb(err, file)
+                            }
                         }
-                        // add namespace
-                        let content = file.contents.toString()
-                        try {
-                            let cssObj = css.parse(content)
-                            // 获取注释包含 root 的节点名称(仅支持一层)
-                            // 遍历所有节点
-                            // 节点名称前加 themeId
-                            addRuleWithPrefix(cssObj.stylesheet.rules)
-                            // console.log('file: '+file.path);
-                            content = css.stringify(cssObj);
-                            // console.log(content);
-                            file.contents = Buffer.from(content)
-                        } catch (err) {
-                            logger.error(err)
-                            return cb(err, file)
-                        }
-                    }
-                    console.log('产出路径：');
-                    console.log(path.join(DIST_PATH, config.projectPath));
-                    cb(null, file)
-                })
-            )
-            .pipe(translateUrl())
-            .pipe(
-                rename(function (path) {
-                    replacePrefix(path)
-                    path.extname = getExt('css')
-                })
-            )
-            // .pipe(toDest(target))
-            .pipe(
-                dest(path.join(DIST_PATH, config.projectPath), {
-                    overwrite: true,
-                    append: true
-                })
-            )
+                        console.log('产出路径：')
+                        console.log(path.join(DIST_PATH, config.projectPath))
+                        cb(null, file)
+                    })
+                )
+                .pipe(translateUrl())
+                .pipe(
+                    rename(function (path) {
+                        replacePrefix(path)
+                        path.extname = getExt('css')
+                    })
+                )
+                // .pipe(toDest(target))
+                .pipe(
+                    dest(path.join(DIST_PATH, config.projectPath), {
+                        overwrite: true,
+                        append: true
+                    })
+                )
+        )
     }
 }
 function translateStylus() {
@@ -478,9 +480,9 @@ function translateTpl() {
                             let html = htmlparser2.DomUtils.getOuterHTML(tree, {
                                 xmlMode: true,
                                 decodeEntities: false
-                            });
+                            })
 
-                            file.contents = Buffer.from(html);
+                            file.contents = Buffer.from(html)
                         }
                     } catch (err) {
                         logger.error(err)
@@ -533,7 +535,7 @@ function translateJs() {
             through2.obj(function (file, _, cb) {
                 if (file.isBuffer()) {
                     try {
-                        let content = file.contents.toString();
+                        let content = file.contents.toString()
                         // commonPageConfig 配置里，useComponents 已经被读取到里面来了，从哪里读取到的，默认每个页面都给加了一个 loading 组件
                         let commonPageConfig = {}
                         if (config.commonPageConfig && config.commonPageConfig.enable) {
@@ -547,8 +549,8 @@ function translateJs() {
                             commonPageConfig,
                             root: config.root,
                             platform: config.platform,
-                            enableEnvsResolve: config.enableEnvsResolve  //允许多平台编译
-                        });
+                            enableEnvsResolve: config.enableEnvsResolve //允许多平台编译
+                        })
                         file.contents = Buffer.from(re.content)
                         let newFile = file.clone()
                         newFile.contents = Buffer.from(re.componentJson)
@@ -596,27 +598,27 @@ function translateImage() {
 /**
  * 处理 app.json
  * 文件都产出到了 project 目录，再开始处理 app.json
- * @returns 
+ * @returns
  */
 function generateApp() {
-    var router = [];
-    var subPackages = [];
+    var router = []
+    var subPackages = []
     //根据编译后的产出目录中的 pages 目录下的文件，自动生成 app.json 中的 pages 配置
-    var distProjectPath = path.join(config.root, DIST_PROJECT_PATH);  //dist/wechat/sandbox/project
-    var distPagesPath = path.join(distProjectPath, path.relative(config.root, config.pagesPath));  // dist/wechat/sandbox/project/pages
+    var distProjectPath = path.join(config.root, DIST_PROJECT_PATH) //dist/wechat/sandbox/project
+    var distPagesPath = path.join(distProjectPath, path.relative(config.root, config.pagesPath)) // dist/wechat/sandbox/project/pages
     //生成主包的目录
     // pages 目录存在 ，小程序才这样处理，插件会跳过这这里，插件项目源码的 app.json 不需要处理(其实也应该做处理)
     if (fs.existsSync(distPagesPath)) {
-        genRouter(distPagesPath, router, distProjectPath);
+        genRouter(distPagesPath, router, distProjectPath)
     }
     //处理分包以及分包下的路径，问题在于，现在分包也是可以引入 plugin 的
     //@todo 应该在分包下面放置一个 config.json，用于合并分包其它配置
     genSubPackages(distProjectPath, subPackages, function (filepath) {
-        let pathname = path.basename(filepath);
+        let pathname = path.basename(filepath)
         // console.log(`pathname: ${pathname}`);
         //config.subPackages 用于存储当前已经确定是分包的目录，哪些目录是分包目录，可通过 override.config.js 的 subpackages 配置项配置
         return config.subPackages.indexOf(pathname) !== -1
-    });
+    })
     return src('app.json', {
         allowEmpty: true
     })
@@ -626,29 +628,29 @@ function generateApp() {
                 if (file.isBuffer()) {
                     let content = file.contents.toString()
                     try {
-                        content = JSON.parse(content);
-                        content.plugins = content.plugins || {};
-                        let plugins = Object.keys(content.plugins);
-                        let hasLiveConf = false;
+                        content = JSON.parse(content)
+                        content.plugins = content.plugins || {}
+                        let plugins = Object.keys(content.plugins)
+                        let hasLiveConf = false
                         for (var key of plugins) {
                             if (key === 'live-player-plugin') {
-                                hasLiveConf = true;
+                                hasLiveConf = true
                             }
                         }
                         // console.log(`hasLiveConf: ${hasLiveConf}`);
                         //去掉直播间配置
                         if (hasLiveConf && config.enableLive === false) {
-                            logger.log('*无直播间版本');
-                            delete content.plugins[key];
+                            logger.log('*无直播间版本')
+                            delete content.plugins[key]
                         }
 
                         if (!hasLiveConf && config.enableLive === true) {
                             //有则不处理，无则添加
-                            logger.log("*有直播间版本");
+                            logger.log('*有直播间版本')
                             content.plugins['live-player-plugin'] = {
-                                "version": config.liveVersion || "1.3.0",
-                                "provider": "wx2b03c6e691cd7370"
-                            };
+                                version: config.liveVersion || '1.3.0',
+                                provider: 'wx2b03c6e691cd7370'
+                            }
                         }
                         // console.log('content.plugins:');
                         // console.log(content.plugins);
@@ -656,7 +658,7 @@ function generateApp() {
                         content.subPackages = content.subPackages || []
                         content.subPackages = content.subPackages.concat(subPackages)
                         content.pages = content.pages || []
-                        content.pages = content.pages.concat(router);
+                        content.pages = content.pages.concat(router)
                         //指定首页
                         if (config.indexPage && router.indexOf(config.indexPage) !== -1) {
                             content.pages.splice(content.pages.indexOf(config.indexPage), 1)
@@ -699,10 +701,12 @@ function optimizeJs() {
     // console.log('optimizeJs');
     return src(normalizeUrl(path.join(DIST_PATH, config.projectPath, `**/*.js`)))
         .pipe(plumber())
-        .pipe(minifyJs({
-            mangle: false,
-            compress: false
-        }))
+        .pipe(
+            minifyJs({
+                mangle: false,
+                compress: false
+            })
+        )
         .pipe(toDest(config.projectPath + '/test'))
         .pipe(toDest(config.projectPath))
 }
@@ -785,7 +789,7 @@ var defaultTask = function () {
         )
     }
     if (config.cmdArgv.optimize) {
-        defaultTasks.push(optimize);  //optimizeJs
+        defaultTasks.push(optimize) //optimizeJs
     }
     if (config.cmdArgv.watch) {
         var watcher = watch(fromSrc('**/*'), {
