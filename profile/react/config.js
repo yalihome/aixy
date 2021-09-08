@@ -1,6 +1,13 @@
+const shelljs = require('shelljs')
 const utils = requireMod('utils')
 const WebpackBaseConfig = require('../@base/default/config')
-exports.profile = 'react'
+exports.profile = 'react';
+
+function syncServer() {
+    shelljs.mkdir('-p', utils.pwdPath('server/conf/@conf'))
+    shelljs.cp('-r', `${utils.pwdPath('@server/conf/*')}`, utils.pwdPath('server/conf/@conf'))
+    shelljs.cp('-r', utils.pwdPath('@server/custom'), utils.pwdPath('@server/route'), utils.pwdPath('server/'))
+}
 
 exports.init = function (Config) {
     return class ProfileConfig extends WebpackBaseConfig(Config) {
@@ -37,6 +44,14 @@ exports.init = function (Config) {
                 }
             }
             this.config.hmrPath = `http://${utils.getIp()}:{port}/__webpack_hmr`
+        }
+
+        onInit(env) {
+            shelljs.mkdir('-p', resolveApp('./server/private/log'))
+            syncServer()
+        }
+        onRestart() {
+            syncServer()
         }
     }
 }

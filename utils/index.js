@@ -215,3 +215,9 @@ var generate = function (src, dest = process.cwd(), meta = {}, cb) {
 }
 
 exports.generate = generate
+
+function pwdPath(filePath) {
+    return path.join(process.cwd(), filePath)
+}
+
+exports.pwdPath = pwdPath
