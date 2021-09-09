@@ -26,7 +26,7 @@ const {fieldEnds} = require('tar')
 const DIST_PATH = path.relative(config.root, config.publicPath) //dist/wechat/sandbox
 // console.log(`publicPath: ${config.publicPath}`)
 const INCLUDE_FILES = fromSrc('**/*', '!override.config.js', '!.DS_Store', '!**/init', '!**/*.less', '!**/*.stylus', '!**/*.tpl', '!**/pages/**/*.js', '!**/pages/**/*.json', '!**/*.{jpg,jpeg,png,gif,svg}', '!**/*.{zip,tgz}', '!app.json', '!package-lock.json')
-const EXCLUDE_FROM_CNPM_PATH = '**/node_modules/!(@(xbreeze|smart-breeze))'
+const EXCLUDE_FROM_CNPM_PATH = '**/node_modules/!(@xbreeze|@smart-breeze)'
 const DIST_PROJECT_PATH = path.join(DIST_PATH, config.projectPath) //dist/wechat/sandbox/project
 const DIST_ASSERT_PATH = path.join(DIST_PATH, config.assertPath)
 
@@ -439,7 +439,7 @@ function translateTpl() {
             })
         )
         .pipe(
-            through2.obj(function (file, _, cb) {
+            through2.obj(function (file, _, cb) {                
                 if (file.isBuffer()) {
                     try {
                         // @todo 这里做了什么，需要研究下
