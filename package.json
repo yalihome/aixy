@@ -1,6 +1,6 @@
 {
     "name": "aixy",
-    "version": "2.2.13",
+    "version": "2.2.14",
     "description": "scaffolding base on webpack",
     "bin": {
         "aixy": "./bin/cli.js"
@@ -22,12 +22,15 @@
         "@pmmmwh/react-refresh-webpack-plugin": "^0.4.3",
         "@vue/babel-helper-vue-jsx-merge-props": "^1.2.1",
         "@vue/babel-plugin-transform-vue-jsx": "^1.2.1",
+        "aixy-template": "git+https://gitee.com/yali__home/aixy-template.git",
         "ansi-colors": "^4.1.1",
         "anymatch": "^3.1.1",
         "art-template": "^4.13.2",
         "babel-eslint": "^10.1.0",
+        "babel-import-plugin": "^1.0.0",
         "babel-loader": "^8.1.0",
         "babel-plugin-module-resolver": "^4.0.0",
+        "babel-plugin-styled-components": "^1.13.2",
         "commander": "^6.2.0",
         "connect": "^3.7.0",
         "copy-webpack-plugin": "^6.3.0",
@@ -66,7 +69,6 @@
         "minimist": "^1.2.5",
         "miniprogram-ci": "^1.0.83",
         "nodemon": "^2.0.6",
-        "aixy-template": "git+https://gitee.com/yali__home/aixy-template.git",
         "postcss-loader": "^4.0.4",
         "postcss-preset-env": "^6.7.0",
         "prettier": "^2.1.2",

@@ -1,5 +1,5 @@
 const path = require('path')
-const {series, parallel, src, dest, watch, lastRun, task} = require('gulp')
+const { series, parallel, src, dest, watch, lastRun, task } = require('gulp')
 const fs = require('fs')
 const rename = require('gulp-rename')
 const less = require('gulp-less')
@@ -14,27 +14,24 @@ const alias = require('gulp-style-aliases')
 const Buffer = require('buffer').Buffer
 const css = require('css')
 const plumber = require('gulp-plumber')
-const {genRouter, genSubPackages, resolveComponent, createStreamFromFile, isHTTP, isBase64, toHash, toBase64, inlineSvg, normalizeUrl, toComponent, Cache, logger, definePlugin, adapterJsPlugin, adapterHtmlPlugin, babelTransform, resolvePath} = require('./utils')
-const {isUndefined, isFunction} = require('util')
+const { genRouter, genSubPackages, resolveComponent, createStreamFromFile, isHTTP, isBase64, toHash, toBase64, inlineSvg, normalizeUrl, toComponent, Cache, logger, definePlugin, adapterJsPlugin, adapterHtmlPlugin, babelTransform, resolvePath, genPlugins, genarateProjectConfJson, genPluginPages, getPluginPagesPath } = require('./utils')
+const { isUndefined, isFunction } = require('util')
 const anymatch = require('anymatch')
-const {rm} = require('shelljs')
+const { rm } = require('shelljs')
 const Config = require(require.resolve('../../config')) //根目录的config.js
 const config = Config.config
-const {resolve: resolveUrl, parse: parseUrl} = require('url')
-const {fieldEnds} = require('tar')
-//这里的root 居然是 E:\smartbreeze\work\dist\wechat\\sandbox
+const { resolve: resolveUrl, parse: parseUrl } = require('url')
+const { fieldEnds } = require('tar')
 const DIST_PATH = path.relative(config.root, config.publicPath) //dist/wechat/sandbox
-// console.log(`publicPath: ${config.publicPath}`)
-const INCLUDE_FILES = fromSrc('**/*', '!override.config.js', '!.DS_Store', '!**/init', '!**/*.less', '!**/*.stylus', '!**/*.tpl', '!**/pages/**/*.js', '!**/pages/**/*.json', '!**/*.{jpg,jpeg,png,gif,svg}', '!**/*.{zip,tgz}', '!app.json', '!package-lock.json')
+const INCLUDE_FILES = fromSrc('**/*', '!override.config.js', '!.DS_Store', '!**/init', '!**/*.less', '!**/*.stylus', '!**/*.tpl', '!**/pages/**/*.js', '!**/pages/**/*.json', '!**/*.{jpg,jpeg,png,gif,svg}', '!**/*.{zip,tgz}', '!app.json', '!package-lock.json', '!config/')
 const EXCLUDE_FROM_CNPM_PATH = '**/node_modules/!(@xbreeze|@smart-breeze)'
 const DIST_PROJECT_PATH = path.join(DIST_PATH, config.projectPath) //dist/wechat/sandbox/project
 const DIST_ASSERT_PATH = path.join(DIST_PATH, config.assertPath)
+let { PLUGIN_MINIPROGRAM_ROOT, PLUGIN_ROOT, TYPE_MAPPER } = require('./consts');
 
-// console.log(`config.projectPath:`+config.projectPath);
-// console.log(`path.sep: ${path.sep} ,DIST_PATH: ${DIST_PATH} ,DIST_ASSERT_PATH: ${DIST_ASSERT_PATH}, DIST_PROJECT_PATH: ${DIST_PROJECT_PATH}, DIST_ASSERT_PATH: ${DIST_ASSERT_PATH}`)
-
+// 某些整个都不需要编译 的目录需要在这里配置
 function fromSrc(...args) {
-    return [...args, `!${DIST_PATH.split(path.sep)[0]}/**`]
+    return [...args, `!${DIST_PATH.split(path.sep)[0]}/**`, '!@config/**'].concat(config.ignorePath)
 }
 
 // normalizeUrl 统一路径为 E:smartbreeze/pshopping-mall 这种
@@ -47,24 +44,6 @@ function toDest(...args) {
     return dest(normalizeUrl(path.join(DIST_PATH, ...args)), {
         overwrite: true
     })
-}
-
-const TYPE_MAPPER = {
-    wechat: {
-        html: '.wxml',
-        css: '.wxss',
-        wxs: '.wsx'
-    },
-    alipay: {
-        html: '.axml',
-        css: '.acss',
-        wxs: '.sjs'
-    },
-    tt: {
-        html: '.ttml',
-        css: '.ttss',
-        wxs: '.sjs'
-    }
 }
 function getExt(type) {
     if (config.ext && config.ext[type]) {
@@ -193,7 +172,6 @@ function replacePrefix(path) {
 }
 
 function sync() {
-    // console.log(`config.assetsDir: ${config.assetsDir}`)
     return src(INCLUDE_FILES.concat(config.assetsDir), {
         since: lastRun(sync),
         base: '.',
@@ -383,8 +361,8 @@ function translateLessWithTheme(theme, themeData) {
                                 return cb(err, file)
                             }
                         }
-                        console.log('产出路径：')
-                        console.log(path.join(DIST_PATH, config.projectPath))
+                        // console.log('产出路径：')
+                        // console.log(path.join(DIST_PATH, config.projectPath))
                         cb(null, file)
                     })
                 )
@@ -439,12 +417,10 @@ function translateTpl() {
             })
         )
         .pipe(
-            through2.obj(function (file, _, cb) {                
+            through2.obj(function (file, _, cb) {
                 if (file.isBuffer()) {
                     try {
-                        // @todo 这里做了什么，需要研究下
                         if (config.enableTheme || (config.globalComponents && config.globalComponents.enable)) {
-                            //乱码的两种猜测：1、在转为 tree 结构的时候已经出错   2、tree 结构转为 html 的时候出错
                             let content = file.contents.toString()
                             let tree = htmlparser2.parseDOM(content, {
                                 xmlMode: true,
@@ -585,6 +561,8 @@ function translateImage() {
                     try {
                         //所有引用的图片更换为线上路径
                         file.path = path.join(file.cwd, toDestUrl(file.path, file))
+                        // console.log(`file.path: `+file.path);
+                        console.log(config.assertPath);
                     } catch (err) {
                         logger.error(err)
                         return cb(err, file)
@@ -602,24 +580,35 @@ function translateImage() {
  */
 function generateApp() {
     var router = []
-    var subPackages = []
+    var subPackages = [];
+    let isPlugin = config.cmdArgv.plugin;
     //根据编译后的产出目录中的 pages 目录下的文件，自动生成 app.json 中的 pages 配置
-    var distProjectPath = path.join(config.root, DIST_PROJECT_PATH) //dist/wechat/sandbox/project
-    var distPagesPath = path.join(distProjectPath, path.relative(config.root, config.pagesPath)) // dist/wechat/sandbox/project/pages
-    //生成主包的目录
-    // pages 目录存在 ，小程序才这样处理，插件会跳过这这里，插件项目源码的 app.json 不需要处理(其实也应该做处理)
-    if (fs.existsSync(distPagesPath)) {
-        genRouter(distPagesPath, router, distProjectPath)
+    var distProjectPath = path.join(config.root, DIST_PROJECT_PATH);
+    var distPagesPath = '';
+    //插件
+    if (isPlugin) {
+        distPagesPath = path.join(distProjectPath, path.relative(config.root, config.macroPagesPath));
+        distProjectPath = getPluginPagesPath(distProjectPath, PLUGIN_MINIPROGRAM_ROOT);
+    } else {
+        distPagesPath = path.join(distProjectPath, path.relative(config.root, config.pagesPath)) // dist/wechat/sandbox/project/pages
     }
-    //处理分包以及分包下的路径，问题在于，现在分包也是可以引入 plugin 的
-    //@todo 应该在分包下面放置一个 config.json，用于合并分包其它配置
-    genSubPackages(distProjectPath, subPackages, function (filepath) {
+    if (fs.existsSync(distPagesPath)) {
+        genRouter(distPagesPath, router, distProjectPath, config.platform)
+    }
+
+    //小程序分包的相关配置(插件、是否独立分包等)，可以在项目根目录的 @conf 下的 config 文件中配置，开发小程序插件项目，目前不支持此特性
+    genSubPackages(distProjectPath, subPackages, config.platform, function (filepath) {
         let pathname = path.basename(filepath)
-        // console.log(`pathname: ${pathname}`);
-        //config.subPackages 用于存储当前已经确定是分包的目录，哪些目录是分包目录，可通过 override.config.js 的 subpackages 配置项配置
         return config.subPackages.indexOf(pathname) !== -1
     })
-    return src('app.json', {
+
+    //插件的 app.json 在 PLUGIN_MINIPROGRAM_ROOT 目录下
+    let appPath = isPlugin ? `${PLUGIN_MINIPROGRAM_ROOT}` : '';
+    //project.config.json 文件的产出位置
+    let outputPath = path.join(config.projectPath, appPath);
+    
+    appPath += 'app.json';
+    return src(appPath, {
         allowEmpty: true
     })
         .pipe(plumber())
@@ -637,7 +626,7 @@ function generateApp() {
                                 hasLiveConf = true
                             }
                         }
-                        // console.log(`hasLiveConf: ${hasLiveConf}`);
+
                         //去掉直播间配置
                         if (hasLiveConf && config.enableLive === false) {
                             logger.log('*无直播间版本')
@@ -652,8 +641,6 @@ function generateApp() {
                                 provider: 'wx2b03c6e691cd7370'
                             }
                         }
-                        // console.log('content.plugins:');
-                        // console.log(content.plugins);
 
                         content.subPackages = content.subPackages || []
                         content.subPackages = content.subPackages.concat(subPackages)
@@ -664,19 +651,26 @@ function generateApp() {
                             content.pages.splice(content.pages.indexOf(config.indexPage), 1)
                             content.pages.unshift(config.indexPage)
                         }
+
+                        //全局组件合并入 app.json
                         if (config.globalComponents && config.globalComponents.enable) {
                             content.usingComponents = content.usingComponents || {}
                             Object.keys(config.globalComponents.components).forEach(function (key) {
-                                toComponent(content.usingComponents, key, config.globalComponents.components[key], config.root)
+                                toComponent(content.usingComponents, key, config.globalComponents.components[key], config.root, config.root)
                             })
                         }
+
+                        //根据环境处理 plugin 配置
+                        genPlugins(config.appConfig, content);
+
                         //obj 转为 json 字符串的时候，冒号与属性值之间的空格数目为 4
                         content = JSON.stringify(content, null, 4)
                         let newFile = file.clone()
                         newFile.contents = Buffer.from(`export default ${content}`)
+                        //为什么会有 app.json.js 这个文件
                         newFile.path = newFile.path.replace(file.extname, '.json.js')
                         let stream = createStreamFromFile(newFile)
-                        stream.pipe(toDest(config.projectPath))
+                        stream.pipe(toDest(outputPath))
                     } catch (err) {
                         logger.error(err)
                         return cb(err, file)
@@ -686,7 +680,73 @@ function generateApp() {
                 cb(null, file)
             })
         )
-        .pipe(toDest(config.projectPath))
+        .pipe(toDest(outputPath))
+}
+
+/**
+ * 处理插件的 plugin.json
+ * 文件都产出到了 project 目录，再开始处理 plugin.json
+ * @returns 
+ */
+function generatePluginJSON() {
+    var router = [];
+    //根据编译后的产出目录中的 pages 目录下的文件，自动生成 app.json 中的 pages 配置
+    var distProjectPath = path.join(config.root, DIST_PROJECT_PATH) //dist/wechat/sandbox/project
+    var distPagesPath = path.join(distProjectPath, path.relative(config.root, config.pluginPagesPath)) // dist/wechat/sandbox/project/plugin/pages
+    if (fs.existsSync(distPagesPath)) {
+        //插件的最终页面路径不需要带上 plugin
+        //baseDir 表示用于获取绝对页面路径后，去掉的前缀
+        //distPagesPath 表示开始循环遍历获取页面文件路径的起始目录
+        genRouter(distPagesPath, router, getPluginPagesPath(distProjectPath, PLUGIN_ROOT));
+    }
+    let outputPath = path.join(config.projectPath, PLUGIN_ROOT);
+
+    //命令行参数有 --plugin，表示当前编译的项目为 小程序插件
+    return src(`${PLUGIN_ROOT}/plugin.json`, {
+        allowEmpty: true
+    })
+        .pipe(plumber())
+        .pipe(
+            through2.obj(function (file, _, cb) {
+                if (file.isBuffer()) {
+                    let content = file.contents.toString()
+                    try {
+                        content = JSON.parse(content)
+                        // 微信 plugin.json 中 pages 直接采用 map 的形式
+                        // 支付宝 plugin.json 中 pages 采用 数组的形式，具体哪个页面对外可访问，取决于用户配置
+                        let pagesObj = genPluginPages(router);
+                        switch (config.platform) {
+                            case 'wechat':
+                                content.pages = content.pages || {};
+                                content.pages = Object.assign(content.pages, pagesObj);
+                                break;
+                            case 'alipay':
+                                content.pages = content.pages || [];
+                                content.pages = content.pages.concat(router);
+                                
+                                content.publicPages = content.publicPages ||{};
+                                content.publicPages = Object.assign(content.publicPages, pagesObj);
+                                break;
+                        }
+
+                        //obj 转为 json 字符串的时候，冒号与属性值之间的空格数目为 4
+                        content = JSON.stringify(content, null, 4);
+                        let newFile = file.clone();
+                        newFile.contents = Buffer.from(`export default ${content}`)
+                        //为什么会有 app.json.js 这个文件
+                        newFile.path = newFile.path.replace(file.extname, '.json.js')
+                        let stream = createStreamFromFile(newFile)
+                        stream.pipe(toDest(outputPath));
+                    } catch (err) {
+                        logger.error(err)
+                        return cb(err, file)
+                    }
+                    file.contents = Buffer.from(content)
+                }
+                cb(null, file)
+            })
+        )
+        .pipe(toDest(outputPath))
 }
 
 //压缩css
@@ -777,8 +837,17 @@ var watchHandler = function (event, file) {
 }
 
 var defaultTask = function () {
-    Config.trigger('onInit', process.env.NODE_ENV)
-    var defaultTasks = [parallel(sync, translateLess, translateTpl, translateJs, translateImage), generateApp]
+    Config.trigger('onInit', process.env.NODE_ENV);
+
+    //自动生成 project.config.json 项目配置文件
+    genarateProjectConfJson(config);
+
+    var defaultTasks = [parallel(sync, translateLess, translateTpl, translateJs, translateImage), generateApp];
+
+    //自动化处理 plugin.json
+    if (config.cmdArgv.plugin) {
+        defaultTasks.push(generatePluginJSON);
+    }
     //命令行参数有 --theme
     if (config.cmdArgv.theme && config.enableTheme) {
         defaultTasks.push(

@@ -30,14 +30,13 @@ dotenv.config()
 var ENV_VARS = {}
 if (fs.existsSync(resolveApp('.env'))) {
     ENV_VARS = dotenv.parse(fs.readFileSync(resolveApp('.env')));
-    // console.log('ENV_VARS:');
-    // console.log(ENV_VARS);
+}
+//如果是小程序，则小程序需要添加 PLATFORM 环境变量
+if(packageJson.platform=='microapp' && !ENV_VARS.PLATFORM){
+    process.env.PLATFORM = ENV_VARS.PLATFORM = 'wechat';
 }
 class Config {
     constructor() {
-        // console.log('两个 node_modules：');
-        // console.log(resolveApp('node_modules')) 
-        // console.log(resolvePath('node_modules'));
         this.config = {
             assertPath: `${platform}/${version}`,  // desktop/1.0.0
             urlPrefix: `${urlPrefix || '/'}`,
@@ -51,8 +50,6 @@ class Config {
             ENV_VARS,  //环境变量
             cmdArgv: argv
         }
-        // console.log('this.config:');
-        // console.log(this.config);
     }
     setConfig(conf) {
         //添加配置到 this.config，就是覆盖默认配置
@@ -60,8 +57,6 @@ class Config {
     }
     trigger(event, ...args) {
         //触发事件
-        // console.log('触发事件：');
-        // console.log(event);
         if (this[event]) {
             this[event](...args)
         }

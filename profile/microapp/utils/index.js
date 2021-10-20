@@ -16,34 +16,62 @@ const colors = require('ansi-colors')
 const anymatch = require('anymatch')
 const htmlparser2 = require('htmlparser2')
 const template = require('art-template')
+const mkdirp = require('mkdirp');
 var rule = template.defaults.rules[1]
-rule.test = new RegExp(rule.test.source.replace('{{', '{#').replace('}}', '#}'))
+rule.test = new RegExp(rule.test.source.replace('{{', '{#').replace('}}', '#}'));
+let { PLUGIN_MINIPROGRAM_ROOT, PLUGIN_ROOT, CONF_FILENAME_MAP, TYPE_MAPPER } = require('../consts');
 
 /**
  * 遍历获取同一个目录下的所有目录的文件真实路径
  * @param {*} dir 
  * @param {*} callback 
  */
-function handlerSameNameDirFile(dir, callback) {
+function handlerSameNameDirFile(dir, platform, callback) {
     // 遍历同一个文件夹下的所有目录以及文件
-    var fss = fs.readdirSync(dir)
+    var fss = fs.readdirSync(dir);
     fss.forEach(function (f) {
+
         var basename = path.basename(f),
             realPath = path.resolve(dir, f);
-            // console.log(`dir: ${dir}, basename: ` + basename + ' ,realPath: '+realPath);
         if (basename[0] === '_') return
         var stat = fs.statSync(realPath);
         //是目录，继续进入目录进行处理
+        //是目录：判断有无 js 文件、有没有同名 json，且 json 中 component 为 false
+        //非目录
         if (stat.isDirectory()) {
-            handlerSameNameDirFile(realPath, callback)
+            handlerSameNameDirFile(realPath, platform, callback)
         } else {
             //是文件，且仅处理 js 文件，模板文件和 js 不处理
             let extname = path.extname(realPath)
             if (extname !== '.js') return
+            let ext = TYPE_MAPPER[platform];
             var basename = path.basename(realPath).replace(extname, ''),
                 dirname = path.dirname(realPath).split(path.sep).pop()
-                // js 文件的名称和目录名称一致，则调用 回调
-            if (basename === dirname) {
+            // js 文件的名称和目录名称一致，则调用 回调
+            // 通过 callback 处理的，才需要被放到 router 中
+            // basename 与 dirname 不一定相等
+            let prefix = realPath.replace('.js', '');
+            let sameNameJson = `${prefix}.json`;
+            let sameNameJsonExist = fs.existsSync(sameNameJson);
+            let sameNameXmlExist = fs.existsSync(`${prefix}${ext.html}`);
+            let sameNameTplExist = fs.existsSync(`${prefix}.tpl`);
+            let obj = '';
+
+            if (sameNameJsonExist) {
+                obj = fs.readFileSync(sameNameJson).toString('utf-8');
+                obj = JSON.parse(obj);
+            }
+
+            if (dirname.indexOf('product-header') > -1) {
+                return;
+                console.log(`dirname: ${dirname}`);
+                console.log(`realPath: ${realPath}`);
+                console.log(`sameNameJson: ${sameNameJson}, sameNameJsonExist: ${sameNameJsonExist}`);
+                console.log(obj);
+                console.log((sameNameXmlExist || sameNameTplExist) && (!sameNameJsonExist || (obj && !obj.component)));
+            }
+            // 首先需要有对应的同名 axml/wxml/tpl 文件，无同名 json，或者有同名 json，且 json 中没有 component: true，才是页面
+            if ((sameNameXmlExist || sameNameTplExist) && (!sameNameJsonExist || (obj && !obj.component))) {
                 //传递出去的是真实目录、当前文件所在目录名、文件名、文件后缀（后缀限定死了是 js 文件）
                 callback({
                     dirname: dirname,
@@ -56,26 +84,23 @@ function handlerSameNameDirFile(dir, callback) {
     })
 }
 /**
- * 获取 dir 目录下所有的符合小程序规范的页面文件路径数组： ['pages/index/index'，'pages/test/test'] 这样
+ * 获取 dir 目录下所有的符合小程序规范的页面文件路径数组(pagePath)： ['pages/index/index'，'pages/test/test'] 这样
  * 关键点在于：获取 pages/index/index，获取真实路径，通过替换真实路径中的根目录字符串获取到
- * 仅在普通小程序主包和分包(extPackage)两个地方有调用 此函数
- * 待优化部分： 插件的 plugin.json 文件也需要调用此函数产生路径数组，而不是每次都手动配置
- * @param {*} dir 当前遍历的目录
- * @param {*} router 路径数组
- * @param {*} baseDir 最终需要在文件真实目录中需要去掉的路径部分
+ * 仅在普通小程序主包和分包(extPackage)、插件 3个地方有调用 此函数
+ * @param {*} dir 当前遍历的目录(pagePath)
+ * @param {*} router 存储路径的数组
+ * @param {*} baseDir 最终需要在文件真实目录中需要去掉的路径部分(projectPath)
  */
-function genRouter(dir, router, baseDir) {
-    // baseDir 取值：
-    // E:\smart-breeze\pi-ma-guide-client\dist\nuode\wechat\sandbox\project
-    // E:\smart-breeze\pi-ma-guide-client\dist\nuode\wechat\sandbox\project\extPackage
-    handlerSameNameDirFile(dir, function ({ realPath, extname }) {
+function genRouter(dir, router, baseDir, platform) {
+    // 不是所有页面 都是符合 pages/index/index 这种规范的，而且很多页面下面是放置的有组件的，需要剔除这种
+    handlerSameNameDirFile(dir, platform, function ({ realPath, extname }) {
         router.push(resolvePath(realPath.replace(baseDir + path.sep, '').replace(extname, '')))
     });
 }
 
 exports.genRouter = genRouter
 
-//@ques 除开 extPackage ，分包叫做其它名字真的不行？
+//@ques 除开 extPackage ，分包叫做其它名字真的不行？——名字是用户自行配置的，可以为其他名字
 function getSubPages(dir, condition, callback) {
     var fss = fs.readdirSync(dir)
     fss.forEach(function (f) {
@@ -103,14 +128,12 @@ function getSubPages(dir, condition, callback) {
  * @param {*} subPackages 
  * @param {*} condition 校验路径的函数，返回 true/false
  */
-function genSubPackages(dir, subPackages, condition) {
+function genSubPackages(dir, subPackages, platform, condition) {
     //project 目录下的 extPackage 目录下的 pages 目录
     getSubPages(dir, condition, function ({ pagesPath, realPath, basename }) {
         let router = [];
         //生成某个目录下的页面记录
-        //pagesPath  dist/wechat/sandbox/project/extPackage/pages
-        //realPath  E:\smart-breeze\pi-ma-guide-client\dist\nuode\wechat\sandbox\project\extPackage
-        genRouter(pagesPath, router, realPath);
+        genRouter(pagesPath, router, realPath, platform);
         subPackages.push({
             root: basename,
             pages: router
@@ -119,6 +142,42 @@ function genSubPackages(dir, subPackages, condition) {
 }
 
 exports.genSubPackages = genSubPackages
+
+/**
+ * 将 [pages/index/index, pges/test/test] 转换为 plugin.json 中的 pages: { index: 'pages/index/index' }
+ * @param {*} router 
+ */
+function genPluginPages(router) {
+    let map = {};
+    router.forEach(ele => {
+        let tmp = ele.split('/');
+        //去头
+        tmp.shift();
+        let len = tmp.length;
+        if (tmp.length >= 2 && tmp[len - 2] == tmp[len - 1]) {
+            //去尾
+            tmp.pop();
+        }
+        map[tmp.join('/')] = ele;
+        tmp = null;
+    });
+    return map;
+}
+
+exports.genPluginPages = genPluginPages;
+
+/**
+ * 专拼接 plugin/ 或者 miniprogram/ 路径后，去掉其最后一个 /
+ * @param {*} dir 
+ * @param {*} pluginPath 
+ * @returns 
+ */
+function getPluginPagesPath(dir, pluginPath) {
+    let baseDir = path.join(dir, pluginPath);
+    return baseDir.substr(0, baseDir.length - 1);
+}
+
+exports.getPluginPagesPath = getPluginPagesPath
 
 function resolvePath(dir) {
     return dir.split(path.sep).join('/')
@@ -191,10 +250,7 @@ function toComponent(components, modName, modPath, pwd, root) {
             log.warn(`cannot find components in ${pwd}`)
             return
         }
-        // if(pwd.indexOf('pages\\cates')>-1 || (pwd.indexOf('pages\\equity')>-1 && pwd.indexOf('info')==-1)){
-        //     console.log('toComponent 拿到所有 components 配置：');
-        //     console.log('resolve: '+path.relative(pwd, componentsPath)+' ,pwd: '+ pwd+' ,componentsPath: '+componentsPath+ ' ,root: '+root);
-        // }
+
         //获取 components 目录在项目中的相对路径 
         componentPath = resolvePath(path.relative(pwd, componentsPath));
         // 获取 subPackage 内部 component
@@ -203,24 +259,42 @@ function toComponent(components, modName, modPath, pwd, root) {
         modPath = modPath.replace('~', '')
         componentPath = '/components';
     }
-    
+
     if (componentPath) {
-        //取 basename 的原因：存在这样的组件：~cards/card-lottery，确实是要取 / 分割的最后一个路径名
+        //获取组件名
         let componentName = path.basename(modPath);
-        //首页的 path.dirname(modPath) 反正都是 . ，其它有 cards/card-order 的待验证
+        let filename = '';
+        // 存在 cards/priduct-item 这样路径的组件，组件名为 priduct-item
         if (path.dirname(modPath) !== '.') {
             componentPath = `${componentPath}/${path.dirname(modPath)}`;
         }
-        //拼接成了 E:xxx/components/coupon-info/coupon-info 这样
-        components[modName] = `${componentPath}/${componentName}/${componentName}`;
-        
+        // 拼接成了 E:xxx/components/coupon-info/coupon-info 这样
+        // 不是所有组件都是符合规范的，有时候对接到别的公司的代码，没可能百分百是 E:xxx/components/coupon-info/coupon-info 这种目录结构，所以需要遍历目录来获取对应组件的 js 代码
+        components[modName] = getComponentFileName(root, componentPath, componentName);
+
     } else {
         //走 @smartbreeze 的 npm 包的，进来了这里
         components[modName] = modPath;
     }
-
-    
     //到了这里，拿到了所有页面代码中 components 配置项中的内容，怎么拿到的？
+}
+
+/**
+ * 根据组件公共目录和组件目录来获取组件 js 的名字
+ * @param {*} root 项目根目录
+ * @param {*} componentPath 统一存放组件的公共目录，如：components 目录
+ * @param {*} componentName 组件文件夹 
+ */
+function getComponentFileName(root, componentPath, componentName) {
+    let files = fs.readdirSync(path.join(root, `${componentPath}/${componentName}`));
+    for (let file of files) {
+        //仅获得以 .js 结尾的文件的名字
+        if (file.endsWith('.js')) {
+            filename = file.replace('.js', '');
+        }
+    }
+    // console.log(`filename: ${filename}`);
+    return `${componentPath}/${componentName}/${filename}`
 }
 
 exports.toComponent = toComponent
@@ -239,7 +313,7 @@ function resolveComponent(content, file, config = {}) {
             })
         }
     }
-    
+
     // if((/@component\(['"](.*)['"]\)[;]?/g).test(content)){
     //     console.log(content);
     //     console.log('dirname: ' + file.dirname);
@@ -265,7 +339,7 @@ function resolveComponent(content, file, config = {}) {
     //获取 json 文件的路径名
     let jsonFile = file.path.replace(file.extname, '.json')
     let platformJsonFile = `${file.path.replace(file.extname, '')}.${config.platform}.json`;
-    
+
     if (config.enableEnvsResolve && fs.existsSync(platformJsonFile)) {
         jsonFile = platformJsonFile
     }
@@ -351,6 +425,84 @@ function createStreamFromFile(file) {
 }
 
 exports.createStreamFromFile = createStreamFromFile
+
+/**
+ * 取出项目根目录中配置的 plugins, subPackages 相关信息 ，合并到 app.json 中，以后切换 .env 或者切换分支，不需要再去更改插件 appid，如果要更改插件 appid 或者版本，去对应环境的配置文件中更改就好，不会对其它环境造成污染
+ * 解决了随意改动版本和 appid 带来的发布错乱问题 
+ * @param {*} param0 
+ * @param {*} appConf 
+ */
+exports.genPlugins = function ({ plugins, subPackages }, appConf = {}) {
+    //主包的 plugins 配置合并(已验证)
+    appConf.plugins = Object.assign(appConf.plugins, plugins);
+    let appPks = appConf.subPackages;
+    //分包的相关 plugins 配置合并(已验证)
+    if (appPks && appPks.length && subPackages) {
+        appPks.forEach(ele => {
+            let conf = subPackages[ele.root];
+            //也可配置分包插件的其它配置，然后一起合并
+            if (conf) {
+                Object.assign(ele, conf)
+            }
+        });
+    }
+
+    if (plugins) {
+        appConf.plugins = appConf.plugins || [];
+        Object.assign(appConf.plugins, plugins);
+    }
+}
+
+/**
+ * 根据项目配置来产出 project.config.json
+ * @param {*} config 
+ */
+exports.genarateProjectConfJson = function (config) {
+    // console.log('genarateProjectConfJson:');
+    // console.log(config);
+    let { root, publicPath, projectPath, cmdArgv, appConfig, env, platform, packageJson } = config;
+    let targetPath = path.resolve(root, publicPath, projectPath);
+    let fileName = CONF_FILENAME_MAP[platform];
+    //项目根目录有 project.config.json 的话，优先读取项目根目录，如果项目根目录下没有，就从工具内部的模板读取
+    let templatePath = path.join(root, fileName);
+    let projectConfJSON;
+    if (fs.existsSync(templatePath)) {
+        projectConfJSON = fs.readFileSync(templatePath);
+        // fs.writeFileSync(targetPath, projectConfJSON);
+    } else {
+        projectConfJSON = fs.readFileSync(path.join(__dirname, `../templates/${fileName}`)).toString('utf-8');
+        projectConfJSON = JSON.parse(projectConfJSON);
+        let isPlugin = cmdArgv.plugin;
+        if (isPlugin) {
+            config.miniprogramRoot = PLUGIN_MINIPROGRAM_ROOT;
+            config.pluginRoot = PLUGIN_ROOT;
+            projectConfJSON.miniprogramRoot = PLUGIN_MINIPROGRAM_ROOT;
+            projectConfJSON.pluginRoot = PLUGIN_ROOT;
+        }
+        //目前仅 微信 平台的开发需要 appId
+        if (platform == 'wechat') {
+            projectConfJSON.appid = appConfig.appId;
+            let projectname = packageJson.title;
+            //名称中没有包含插件 2 字，自动添加 plugin 标志
+            if (isPlugin) {
+                if (projectname) {
+                    if (projectname && projectname.indexOf('插件') == -1) projectname = projectname + '-plugin';
+                }
+                else console.log('请在项目根目录的 package.json 中添加 title 属性来配置项目名');
+            }
+            projectConfJSON.projectname = `${projectname}-${env}`;
+        }
+
+        projectConfJSON.compileType = (isPlugin ? 'plugin' : 'miniprogram');
+
+        projectConfJSON = JSON.stringify(projectConfJSON, null, 4);
+    }
+    //插件需要设置  miniprogramRoot 和 pluginRoot，如果没有对应的目录，就顺便生成
+    if (!fs.existsSync(targetPath)) {
+        mkdirp.sync(targetPath);
+    }
+    fs.writeFileSync(path.join(targetPath, fileName), projectConfJSON);
+}
 
 exports.isHTTP = function (str) {
     if (!str) return false
@@ -480,7 +632,7 @@ function toRenderConsts(consts) {
     })
     return re
 }
-//webpack 中 definePlugin 的功能就是如此
+//webpack 中 definePlugin 的功能就是如此，替换 js 和 tpl 文件中使用的常量
 exports.definePlugin = function (
     consts,
     conf = {
@@ -644,7 +796,8 @@ exports.adapterHtmlPlugin = function (config) {
                             decodeEntities: true
                         })
                         content = htmlparser2.DomUtils.getOuterHTML(adapterHtml(tree, config.platform), {
-                            xmlMode: true
+                            xmlMode: true,
+                            decodeEntities: false
                         })
                         break
                 }

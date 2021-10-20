@@ -46,15 +46,16 @@ function devServe() {
         }
         //合并配置到 this.config
         Config.trigger('onConfig', webpackConf, ENV)
+        
+        var compiler = webpack(webpackConf)
+        // console.log('最终配置：');
+        // console.log(webpackConf.module.rules);
         //将这些配置写入文件查看
-        writeFile(path.join(process.cwd(), 'test.json'), JSON.stringify(webpackConf), {flag: 'a'}, err => {
+        writeFile(path.join(process.cwd(), 'test.json'), JSON.stringify(webpackConf.module.rules), {flag: 'a'}, err => {
             if (!err) {
                 console.log('保存配置成功')
             }
         })
-        var compiler = webpack(webpackConf)
-        // console.log('最终配置：');
-        // console.log(webpackConf);
 
         let wdmLogger = compiler.getInfrastructureLogger('webpack-dev-middleware')
         var app = connect()
