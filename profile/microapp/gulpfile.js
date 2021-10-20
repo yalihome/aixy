@@ -562,7 +562,7 @@ function translateImage() {
                         //所有引用的图片更换为线上路径
                         file.path = path.join(file.cwd, toDestUrl(file.path, file))
                         // console.log(`file.path: `+file.path);
-                        console.log(config.assertPath);
+                        // console.log(config.assertPath);
                     } catch (err) {
                         logger.error(err)
                         return cb(err, file)
@@ -697,7 +697,7 @@ function generatePluginJSON() {
         //插件的最终页面路径不需要带上 plugin
         //baseDir 表示用于获取绝对页面路径后，去掉的前缀
         //distPagesPath 表示开始循环遍历获取页面文件路径的起始目录
-        genRouter(distPagesPath, router, getPluginPagesPath(distProjectPath, PLUGIN_ROOT));
+        genRouter(distPagesPath, router, getPluginPagesPath(distProjectPath, PLUGIN_ROOT), config.platform);
     }
     let outputPath = path.join(config.projectPath, PLUGIN_ROOT);
 
