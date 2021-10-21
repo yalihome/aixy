@@ -238,7 +238,7 @@ function merge(target, ...sources) {
  * @returns 
  */
 function toComponent(components, modName, modPath, pwd, root) {
-    var componentPath
+    var componentPath;
     // 相对 subPage 模块
     if (modPath.startsWith('&')) {
         modPath = modPath.replace('&', '')
@@ -250,7 +250,6 @@ function toComponent(components, modName, modPath, pwd, root) {
             log.warn(`cannot find components in ${pwd}`)
             return
         }
-
         //获取 components 目录在项目中的相对路径 
         componentPath = resolvePath(path.relative(pwd, componentsPath));
         // 获取 subPackage 内部 component
@@ -261,22 +260,21 @@ function toComponent(components, modName, modPath, pwd, root) {
     }
 
     if (componentPath) {
-        //获取组件名
+        //取 basename 的原因：存在这样的组件：~cards/card-lottery，确实是要取 / 分割的最后一个路径名
         let componentName = path.basename(modPath);
-        let filename = '';
-        // 存在 cards/priduct-item 这样路径的组件，组件名为 priduct-item
+        //首页的 path.dirname(modPath) 反正都是 . ，其它有 cards/card-order 的待验证
         if (path.dirname(modPath) !== '.') {
             componentPath = `${componentPath}/${path.dirname(modPath)}`;
         }
-        // 拼接成了 E:xxx/components/coupon-info/coupon-info 这样
-        // 不是所有组件都是符合规范的，有时候对接到别的公司的代码，没可能百分百是 E:xxx/components/coupon-info/coupon-info 这种目录结构，所以需要遍历目录来获取对应组件的 js 代码
-        components[modName] = getComponentFileName(root, componentPath, componentName);
+
+        //拼接成了 E:xxx/components/coupon-info/coupon-info 这样
+        components[modName] = `${componentPath}/${componentName}/${componentName}`;
+        // console.log('component ' + modName + ': ' + components[modName]);
 
     } else {
         //走 @smartbreeze 的 npm 包的，进来了这里
         components[modName] = modPath;
     }
-    //到了这里，拿到了所有页面代码中 components 配置项中的内容，怎么拿到的？
 }
 
 /**
@@ -335,7 +333,7 @@ function resolveComponent(content, file, config = {}) {
     //插件构建之后，pageConfig 里面有 navigationStyle 配置。。。，貌似还是在 genIdentifierComponents 里面被加上的
 
     //页面中的 components 配置在这里，通过 babel 转换为 ast，然后被提取出来成为了 useComponents
-    content = genIdentifierComponents(content, file.dirname, pageConfig);
+    content = genIdentifierComponents(content, file.dirname, pageConfig, config.root);
     //获取 json 文件的路径名
     let jsonFile = file.path.replace(file.extname, '.json')
     let platformJsonFile = `${file.path.replace(file.extname, '')}.${config.platform}.json`;
@@ -371,7 +369,8 @@ function genIdentifierComponents(
     dirname,
     pageConfig = {
         usingComponents: {}
-    }
+    },
+    root
 ) {
     const ast = parse(code, {
         sourceType: 'module'

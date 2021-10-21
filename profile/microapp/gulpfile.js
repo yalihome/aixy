@@ -654,7 +654,7 @@ function generateApp() {
 
                         //全局组件合并入 app.json
                         if (config.globalComponents && config.globalComponents.enable) {
-                            content.usingComponents = content.usingComponents || {}
+                            content.usingComponents = content.usingComponents || {};
                             Object.keys(config.globalComponents.components).forEach(function (key) {
                                 toComponent(content.usingComponents, key, config.globalComponents.components[key], config.root, config.root)
                             })
@@ -751,14 +751,15 @@ function generatePluginJSON() {
 
 //压缩css
 function optimize() {
+    // console.log('optimize: '+getExt('css'));
     return src(normalizeUrl(path.join(DIST_PATH, config.projectPath, `**/*${getExt('css')}`)))
         .pipe(plumber())
         .pipe(cleanCSS())
         .pipe(toDest(config.projectPath))
 }
+
 //压缩js
 function optimizeJs() {
-    // console.log('optimizeJs');
     return src(normalizeUrl(path.join(DIST_PATH, config.projectPath, `**/*.js`)))
         .pipe(plumber())
         .pipe(
