@@ -456,7 +456,7 @@ exports.genPlugins = function ({ plugins, subPackages }, appConf = {}) {
  * 根据项目配置来产出 project.config.json
  * @param {*} config 
  */
-exports.genarateProjectConfJson = function (config) {
+ exports.genarateProjectConfJson = function (config) {
     // console.log('genarateProjectConfJson:');
     // console.log(config);
     let { root, publicPath, projectPath, cmdArgv, appConfig, env, platform, packageJson } = config;
@@ -466,40 +466,43 @@ exports.genarateProjectConfJson = function (config) {
     let templatePath = path.join(root, fileName);
     let projectConfJSON;
     if (fs.existsSync(templatePath)) {
-        projectConfJSON = fs.readFileSync(templatePath);
+        projectConfJSON = fs.readFileSync(templatePath).toString('utf-8');
+        projectConfJSON = JSON.parse(projectConfJSON);
         // fs.writeFileSync(targetPath, projectConfJSON);
     } else {
         projectConfJSON = fs.readFileSync(path.join(__dirname, `../templates/${fileName}`)).toString('utf-8');
         projectConfJSON = JSON.parse(projectConfJSON);
-        let isPlugin = cmdArgv.plugin;
-        if (isPlugin) {
-            config.miniprogramRoot = PLUGIN_MINIPROGRAM_ROOT;
-            config.pluginRoot = PLUGIN_ROOT;
-            projectConfJSON.miniprogramRoot = PLUGIN_MINIPROGRAM_ROOT;
-            projectConfJSON.pluginRoot = PLUGIN_ROOT;
-        }
-        //目前仅 微信 平台的开发需要 appId
-        if (platform == 'wechat') {
-            projectConfJSON.appid = appConfig.appId;
-            let projectname = packageJson.title;
-            //名称中没有包含插件 2 字，自动添加 plugin 标志
-            if (isPlugin) {
-                if (projectname) {
-                    if (projectname && projectname.indexOf('插件') == -1) projectname = projectname + '-plugin';
-                }
-                else console.log('请在项目根目录的 package.json 中添加 title 属性来配置项目名');
-            }
-            projectConfJSON.projectname = `${projectname}-${env}`;
-        }
-
-        projectConfJSON.compileType = (isPlugin ? 'plugin' : 'miniprogram');
-
-        projectConfJSON = JSON.stringify(projectConfJSON, null, 4);
     }
+    //pluginRoot 和 miniprogramRoot 是不变化的
+    let isPlugin = cmdArgv.plugin;
+    if (isPlugin) {
+        config.miniprogramRoot = PLUGIN_MINIPROGRAM_ROOT;
+        config.pluginRoot = PLUGIN_ROOT;
+        projectConfJSON.miniprogramRoot = PLUGIN_MINIPROGRAM_ROOT;
+        projectConfJSON.pluginRoot = PLUGIN_ROOT;
+    }
+    //目前仅 微信 平台的开发需要 appId
+    if (platform == 'wechat') {
+        projectConfJSON.appid = appConfig.appId;
+        let projectname = packageJson.title;
+        //名称中没有包含插件 2 字，自动添加 plugin 标志
+        if (isPlugin) {
+            if (projectname) {
+                if (projectname && projectname.indexOf('插件') == -1) projectname = projectname + '-plugin';
+            }
+            else console.log('请在项目根目录的 package.json 中添加 title 属性来配置项目名');
+        }
+        
+        projectConfJSON.projectname = `${projectname}-${env}`;
+    }
+
+    projectConfJSON.compileType = (isPlugin ? 'plugin' : 'miniprogram');
+    projectConfJSON = JSON.stringify(projectConfJSON, null, 4);
     //插件需要设置  miniprogramRoot 和 pluginRoot，如果没有对应的目录，就顺便生成
     if (!fs.existsSync(targetPath)) {
         mkdirp.sync(targetPath);
     }
+    console.log(path.join(targetPath, fileName));
     fs.writeFileSync(path.join(targetPath, fileName), projectConfJSON);
 }
 
