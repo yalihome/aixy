@@ -463,7 +463,7 @@ exports.genarateProjectConfJson = function (config) {
         projectConfJSON = JSON.parse(projectConfJSON)
         // fs.writeFileSync(targetPath, projectConfJSON);
     } else {
-        projectConfJSON = fs.readFileSync(path.join(__dirname, `../templates/${fileName}`)).toString('utf-8')
+        projectConfJSON = fs.readFileSync(path.join(__dirname, `../templates/${platform}.conf.js`)).toString('utf-8')
         projectConfJSON = JSON.parse(projectConfJSON)
     }
     // pluginRoot 和 miniprogramRoot 是不变化的
