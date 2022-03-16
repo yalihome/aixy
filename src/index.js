@@ -28,7 +28,7 @@ program
             case 'microapp':
                 command = process.platform === 'win32' ? 'gulp.cmd' : 'gulp';
                 spawn(
-                    path.resolve(__dirname, './node_modules/.bin', command),
+                    path.resolve(__dirname, '../node_modules/.bin', command),
                     ['--gulpfile', path.resolve(__dirname, './profile/microapp/gulpfile.js'), '--cwd', process.cwd()].concat(process.argv.slice(3))
                 );
                 break;
@@ -53,7 +53,7 @@ program
             case 'microapp':
                 command = process.platform === 'win32' ? 'gulp.cmd' : 'gulp';
                 spawn(
-                    path.resolve(__dirname, './node_modules/.bin', command),
+                    path.resolve(__dirname, '../node_modules/.bin', command),
                     ['--gulpfile', path.resolve(__dirname, './profile/microapp/gulpfile.js'), '--cwd', process.cwd()].concat(process.argv.slice(3)).concat('--optimize')
                 );
                 break;

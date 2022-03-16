@@ -461,10 +461,9 @@ exports.genarateProjectConfJson = function (config) {
     if (fs.existsSync(templatePath)) {
         projectConfJSON = fs.readFileSync(templatePath).toString('utf-8')
         projectConfJSON = JSON.parse(projectConfJSON)
-        // fs.writeFileSync(targetPath, projectConfJSON);
     } else {
-        projectConfJSON = fs.readFileSync(path.join(__dirname, `../templates/${platform}.conf.js`)).toString('utf-8')
-        projectConfJSON = JSON.parse(projectConfJSON)
+        projectConfJSON = require(`../templates/${platform}.conf.js`).project;
+
     }
     // pluginRoot 和 miniprogramRoot 是不变化的
     const isPlugin = cmdArgv.plugin
