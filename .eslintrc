@@ -1,0 +1,26 @@
+{
+    "parser": "babel-eslint",
+    "extends": "eslint:recommended",
+    "root": true,
+    "env": {
+        "browser": true,
+        "node": true,
+        "es6": true
+    },
+    "globals": {
+        "requireMod": "readonly",
+        "resolvePath": "readonly",
+        "resolveApp": "readonly",
+        "getConfig": "readonly",
+        "requirePath": "readonly",
+        "__CACHE_FILES__": "readonly",
+        "__resourceQuery": "readonly"
+    },
+    "rules": {
+        "no-fallthrough": 0,
+        "no-invalid-regexp": 0,
+        "no-unused-vars": 0,
+        "no-useless-escape": 0
+    }
+}
+  
