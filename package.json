@@ -3,7 +3,7 @@
     "version": "2.2.21",
     "description": "scaffolding base on webpack",
     "bin": {
-        "aixy": "./lib/bin/cli.js"
+        "aixy": "./src/bin/cli.js"
     },
     "dependencies": {
         "@babel/core": "^7.12.3",

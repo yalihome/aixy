@@ -1,4 +1,214 @@
-## 聚合的前端构建工具，目前支持 vue、react、微信小程序、微信小程序插件、后续还会增加对 Taro 的支持和对 Vue3 的支持
+### aixy 是什么？
+
+&emsp;&emsp;aixy 是一个小型的的自研的前端多框架、多平台构建工具；目前已支持 angularjs(老旧项目)、Vue1、Vue2、微信小程序/插件、支付宝小程序/插件的构建；目前网页端构建的实现是基于 webpack，小程序端构建的实现基于 gulp；未来如果有更优秀更适合的开源构建工具出现，也是可以继续集成封装在 aixy 内的
+
+### aixy 的优势
+
+&emsp;&emsp;因之前的工作中网页端经历了不同时期的项目的不同构建工具，命令不统一，某些工具还无法接入 npm，导致维护起来特别麻烦，严重影响工作效率，所以我们放弃了之前一直使用的 fis 系列封装的构建工具，转入了使用更易上手、扩展性更好、应用更广泛的 webpack
+
+&emsp;&emsp;而小程序端选择 gulp， 而不是 webpack，主要是小程序的项目源文件和产出文件是一对一的，gulp 的这种流式操作与小程序更加贴合；
+
+&emsp;&emsp;因没有现成的完整的解决方案能解决眼前的问题，故将两者统一封装到 aixy ，统一了命令和规范，再配合组件化服务化，接入 npm，基本上我们每次开发，90% 以上的注意力都集中在了需求的实现上，工作效率得了到很大的提升，新人的上手速度也更快；
+
+### aixy 的一些简单规范
+
+&emsp;&emsp;无论小程序还是网页，aixy 要求页面(pages)和组件(components)目录下的文件默认分为3个同名的 .js、.less、.tpl 文件，网页端的话除开 .less，也可以使用 sass、stylus；小程序端的话，样式文件也可以是 .wxss、.acss 这种平台原生的，模板文件的话也可以是 .wxml、.axml 这种平台原生的，原生小程序代码和遵循 aixy 规范的代码在同一个小程序中共存也是可以的，目前已经成功的实践过将别的公司开发的小程序代码接入 aixy
+
+### 提供的功能
+##### 小程序端
+
+* Less 预编译
+* Less import 文件目录自动计算
+* 多皮肤
+* 页面引用的组件的目录自动识别生成(包括分包)
+* 非页面/非组件 js 文件引用目录自动生成(包括分包)
+* 图片自动转 base64/SVG 嵌入
+* 本地以相对路径引入的图片 url 自动拼接图片云服务域名
+* 图片 hash 强缓存 
+* 多项目共享内容合并策略
+* 全局自动注入公共内容至页面模板
+* 环境变量注入模板/js
+* app.json 与 plugin.json 配置自动生成
+* 多平台多环境产出
+##### 网页端
+* 项目路由按目录自动生成
+* 页面 js 的同名 css 自动引入
+* Less 引入路径 alias 
+* 多皮肤构建
+* 版本控制
+* webpack内置 server 和外部 server
+### 安装
+```
+npm install aixy -g
+```
+
+### 使用
+项目运行起来的必要条件：配置文件(override.config.js + .env) + 命令行
+#### 1. override.config.js
+
+用于自定义项目和 aixy 内部传给 webpack/gulp 的配置
+
+**小程序端**的所有可用配置，示例代码如下：
+```
+// profile 用于指明当前编译类型，可选类型如下：v1(vue1)、vue(vue2)、microapp(小程序)
+exports.profile = 'microapp'
+//项目下的多皮肤相关配置
+const themeData = require('./components/common/theme')
+//当次编译时的皮肤值，取自系统变量
+const COLOR = process.env.THEME_COLOR || 'default'
+//用户自定义的项目配置，会覆盖 aixy  内部默认的配置，init 函数的参数 Config 是 aixy 内部的默认配置类，init 函数返回的类最终会在 aixy 内部实例化，作为编译的全局配置使用
+exports.init = function (Config) {
+    class ProjectConfig extends Config {
+        constructor() {
+            super();
+            // setConfig 为父类提供的方法，通过它，自定义的配置会和 aixy 内部配置合并，得到真正的应用配置
+            this.setConfig({
+                //传给 less.js 的参数， modifyVars 配置的变量会覆盖开发者写在项目 .less 文件中的同名变量，这是实现多皮肤的关键
+                lessOptions: {  
+                    modifyVars: themeData[COLOR],
+                    OSS_PATH: JSON.stringify(this.config.imageDomain)
+                },
+                enableTheme: false,  //多皮肤编译开关，默认关闭
+                themes: ['red'],  //当前项目所具有的全部皮肤种类
+                themeData,     //不同皮肤的 less 变量值配置对象，具体如何配置后面细说
+                themePrefix：'_T-'  //多皮肤公共前缀，默认值为 _T-，一般不建议改动
+                indexPage: 'pages/mall/mall',   //小程序首页路径，默认为 pages/index/index
+                publicPath:  ''    //项目构建产出目录，不建议用户在这里配置，取值何来，后面细说
+                imageDomain: ''    //图片云服务地址目录，不建议用户在这里配置，取值何来，后面细说
+                assetsDir: ['images/**/*'],   //项目中不需要处理的图片，通常放在小程序根目录下的 images 目录
+                assertPath: '' //需要上传到图片服务器的图片被提取出来的存放目录，不建议用户在这里配置，取值何来，后面细说
+                useHash: true,   //是否对上传运云服务的图片添加 hash，默认开启
+                hashLen: 8,  //图片 hash 长度，默认为 8
+                ignoreHash: [],  //指定不需要带 hash 的图片
+                //可用在 模板 和 js 文件中的替换常量，健名可以随意，不一定非得是 process.env[pro] 这样
+                consts: {  
+                    'process.env.OSS_PATH': this.config.imageDomain
+                },
+                prefix: '@ext'  //内容共享目录，每个小程序根目录下的这个目录内部的内容最终都会合并到项目根目录，默认为 @ext，一般不做改动
+            });
+        }
+    }
+    return ProjectConfig
+}
+```
+* **themeData**
+
+多皮肤样式变量的配置文件格式如下：
+```
+module.exports = {
+    red: {
+        primaryColor: '#fff000',
+        bgColor: '#fefefe'
+    },
+    blue: {
+        primaryColor: '#8e8e8e',
+        bgColor: '#cecece' 
+    }
+}
+
+```
+* **publicPath**
+
+项目的产出目录，其默认值为 `project/${PLATFORM}/${NODE_ENV}` ，是根据用户在 .env 文件中设置的 PLATFORM 和 NODE_ENV 系统变量值自动计算而来，不需要用户手动设置
+
+* **imageDomain**
+
+项目的图片云服务地址，因开发过程中 NODE_ENV 有 sandbox、production 之分，故而 imageDomain 的值设置在项目根目录下的 @conf 目录下的环境配置 js 文件中，NODE_ENV = sandbox 时，对应的配置文件为 @conf/config.sandbox.js ，NODE_ENV = production 时，对应的配置文件为 @conf/config.js ，less 编译完毕后，less 中的相对路径引用的图片的前缀都变成了 `${imageDomain}/${enterprise}`
+
+* **assertPath**
+
+less 中以相对路径引用的图片的踢去地址，其默认值为：`public/${enterprise}`，enterprise 是通过 package.json 配置的；编译完毕后，在这个目录下你就会发现，所有你需要上传到云服务的图片，aixy 都帮你按照原路径提取出来了，你只需要将整个 `public/${enterprise}` 文件夹扔到云服务器上就行了
+
+**网页端**的所有可用配置，示例代码如下：
+
+```
+//项目下的多皮肤相关配置
+var theme = require('./components/common/theme')
+var {
+    version
+} = require('./package.json');
+
+//当次编译时的皮肤值，取自系统变量
+const COLOR = process.env.THEME_COLOR;
+
+// profile 用于指明当前编译类型，可选类型如下：v1(vue1)、vue(vue2)、microapp(小程序)
+exports.profile = 'v1'
+
+exports.init = function(Config) {
+    class MyConfig extends Config {
+        constructor() {
+            super()
+            this.config.styleLoaderOptions = {
+                less: {
+                    lessOptions: {
+                        globalVars: theme['blue']
+                    }
+                }
+            }
+            if (COLOR && theme[COLOR]) {
+                this.config.assertPath = `theme_${COLOR}/${version}`
+                this.config.styleLoaderOptions.less.lessOptions.modifyVars = theme[COLOR]
+            }
+        }
+        onInit(env) {
+            // 获取到 aixy 全局配置时候的钩子，此时 webpack 配置文件还未加载
+        }
+        onConfig(webpackConf, env){
+            //webpack 环境关联配置文件已经获取到，用户可在此对配置进行修改，下一步就是执行  compiler = webpack(webpackConfig) 了
+        }
+        onDone(stats, env){
+            // webpack 编译首次成功之后的钩子，stats 参数中可以获取到出错的具体信息
+        }
+        onError(stats, env){
+            // webpack 首次编译失败之后的钩子，stats 参数中可以获取到出错的具体信息，env 表示当前环境为 sandbox/prod
+        }
+    }
+    return MyConfig
+}
+```
+
+#### 2. .env 
+
+在此文件中以键值对方式配置的变量最终会被添加到 peocess.env 环境变量中，可配置项如下
+```
+NODE_ENV=sandbox
+PLATFORM=wechat
+```
+
+*NODE_ENV* 可取值为 sandbox | production  表示当前环境是沙箱还是生产
+*PLATFORM* 可取值为 wechat | alipay | tt  表示编译的小程序归属平台
+在.env 设置的配置，最终也会被放入 **consts** 中，这样用户就能在 .js 和 .tpl 文件中以为 process.env[pro] 的方式使用他们，同时，consts 还提供了 APP_BUILD_TIME(当前构建时间) 、 APP_VERSION(当前小程序版本号)  两个环境变量供开发者使用
+
+#### 3. aixy 命令行
+
+常用命令如下：
+
+* **build**   生产构建命令，与 dev 命令的区别在于会开启压缩混淆等系列优化能力，不会启动 server
+* **dev**   开发构建命令，会启动本地 nodejs server
+* **pack**   打包产出目录文件到 .zip，为小程序端常用功能
+* **upload**   通过微信官方提供的 miniprogram-ci 扩展的上传小程序代码的能力，此功能目前暂未完成测试
+* **fmt**   调用 prettier，检查代码是不是不规范
+* **clean**   用于删除项目根目录下 node_modules/.cache 内容
+
+常用选项如下：
+
+* **--watch**   生产构建命令，与 dev 命令的区别在于会开启压缩混淆等系列优化能力，不会启动 server
+* **--theme**   开发构建命令，会启动本地 nodejs server
+* **--plugin**   打包产出目录文件到 .zip，为小程序端常用功能
+* **--optimize**   通过微信官方提供的 miniprogram-ci 扩展的上传小程序代码的能力，此功能目前暂未完成测试
+
+#### 网页端
+
+#### 小程序端
+
+### 关于未来
+
+* 虽然目前 aixy 编译微信和支付宝的小程序/插件，都没有问题，未来即使再扩展其它小程序的编译，都是很容易实现的，但是，要做到一份代码同时可以编译到微信、支付宝、百度、抖音，且还能正常运行，目前是还没有完全实现的；作者最近正在找工作，这个事情暂时推后，不过下一个阶段应该就是去研究一下 Taro 的某些实现，虽然我不打算迁过去 Taro(不支持插件)，但是我觉得 Taro 的某些思路还是很值得参考的；路过的有想法的朋友可以踊跃贡献思路
+* 目前刚好在准备面试，并且我自己是 Vue 技术栈的，索性现在就开始研究 Vue3 了，最近 vue3 的构建功能可能会逐步完善
+* 后续会参照 vite-create 开发一个初始化小工具 aixy-create，用于提供各个框架的初始化模板，原生和 TS 版本的都会有
+* 近两年在网页端花费的时间比小程序少上很多，所以小程序的编译功能就更加丰富，后面会根据小程序的经验，逆向对网页端的功能进行扩展
+* 以上，敬请期待
+
 
 简介：
         aixy 为目前公司自研的前端构建工具，公司的管理后台(除开标标准版 scrm)、移动端、小程序均可使用；aixy 在网页端基于 webpack5，在小程序端基于 gulp4；公司的项目分为 管理后台、H5移动端、小程序端；管理后台目前使用的前端框架为 ng，H5移动端目前使用的 前端框架为 vue1，小程序端目前使用的是都是原生。
@@ -60,18 +270,6 @@ project.config.json 文件、主包/分包 app.json  目录/插件配置自动�
 支持多平台编译(初级版，非一套代码多端编译)
 压缩混淆
 
-aixy 源码包目录结构：
-
-bin/cli.js  命令行工具的入口  
-loader    供给 webpack 使用的 loader
-fis3.js  用于将之前基于 fis3 构建工具项目中的 __inline 和 __uri 转换为 webpack 的 require
-router.js/ router.v1.js / router.react.js  遍历项目中存放业务页面的目录，得到结构化的目录文件对象({ name: 'level', file: 'level/level.js'  })，然后用这个对象替换前端页面中的某些特殊字符串( __ROUTER_MAP__ )，来实现路由的自动生成
-plugins    供给 webpack 使用的插件
-profile    内置各个框架的不同环境的默认配置文件
-scripts   工具子命令对应的脚本文件，除开小程序端使用的是 gulp ，网页端基本最终执行的都是 node scripts/dev 等命令
-utils   提供通用公共方法接口
-config.js  构建配置处理，按照全局Config、profile 目录下框架对应的 config、overrideConfig 的顺序来合并配置
-index.js    bin/cli.js 真正调用的文件，定义了命令行工具的各个子命令(aixy -h 查看)
 
 配置：
 网页端配置
@@ -109,7 +307,7 @@ assetsDir  本地图片存放地址(不会被工具编译，转为云服务图�
 imageDomain  图片云服务域名
 indexPage   设置小程序的首页
 useHash  css 文件中的图片资源被替换上图片服务域名后，是否添加 hash，启用缓存
-hashLength   图片启用缓存后的 hash 位数
+hashLen   图片启用缓存后的 hash 位数
 alias  别名
 prefix  其配置的目录下的所有文件都会合并到根目录
 themes  项目需要的皮肤种类 ['pink', 'blue']，这里不需要配置 default 皮肤
